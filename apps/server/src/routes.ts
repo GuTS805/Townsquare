@@ -9,6 +9,7 @@ import { Router, type NextFunction, type Request, type Response } from "express"
 import { z } from "zod";
 import type { Ctx } from "./context";
 import { rateLimit } from "./ratelimit";
+import { rejectionsFor } from "./rejections";
 import { submitAction, moderate, nextStatement } from "./services/actions";
 import { auditBundle, meta } from "./services/bundle";
 import {
@@ -73,6 +74,21 @@ export function routes(ctx: Ctx): Router {
         select sid, text, status, reason_code from statements
         where conv_id = ${conv.id} order by (status = 'pending') desc, sid desc`;
       res.json(rows);
+    }),
+  );
+
+  r.get(
+    "/conversations/:slug/dashboard",
+    h(async (req, res) => {
+      const conv = await requireAdmin(ctx, slugOf(req), bearer(req));
+      const [view, batches, recent] = await Promise.all([
+        publicView(ctx, conv),
+        ctx.sql`select batch_id, from_seq, to_seq, tx_hash, status, created_at from batches
+                where conv_id = ${conv.id} order by batch_id desc limit 20`,
+        ctx.sql<{ n: number }[]>`select count(*)::int as n from events
+                where conv_id = ${conv.id} and type = 'VOTE' and t > now() - interval '5 minutes'`,
+      ]);
+      res.json({ ...view, batches, votesLast5Min: recent[0]?.n ?? 0, rejections: rejectionsFor(conv.slug) });
     }),
   );
 
@@ -176,12 +192,21 @@ export function routes(ctx: Ctx): Router {
     "/c/:slug/results",
     h(async (req, res) => {
       const conv = await getConversation(ctx, slugOf(req));
-      const [result, lastBatch] = await Promise.all([
+      const [result, lastBatch, statements] = await Promise.all([
         latestResult(ctx, conv.id),
         ctx.sql`select batch_id, to_seq, tx_hash, created_at from batches
                 where conv_id = ${conv.id} and status = 'confirmed' order by batch_id desc limit 1`,
+        ctx.sql`select sid, text, status, reason_code from statements where conv_id = ${conv.id} order by sid`,
       ]);
-      res.json({ result, lastAnchor: lastBatch[0] ?? null, finalResultHash: conv.final_result_hash, phase: conv.phase });
+      res.json({
+        result,
+        statements,
+        lastAnchor: lastBatch[0] ?? null,
+        finalResultHash: conv.final_result_hash,
+        phase: conv.phase,
+        question: conv.question,
+        title: conv.title,
+      });
     }),
   );
 

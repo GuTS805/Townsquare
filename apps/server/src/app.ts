@@ -3,6 +3,7 @@ import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
 import type { Ctx } from "./context";
+import { recordRejection } from "./rejections";
 import { routes } from "./routes";
 
 export function createApp(ctx: Ctx) {
@@ -21,6 +22,7 @@ export function createApp(ctx: Ctx) {
   app.use((_req, _res, next) => next(new TsError("NOT_FOUND", "no such route")));
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof TsError) {
+      if (err.code !== "NOT_FOUND") recordRejection(req.originalUrl, err.code);
       if (err.status >= 500) ctx.log.error({ err, path: req.path }, err.message);
       return res.status(err.status).json({ code: err.code, message: err.message });
     }
