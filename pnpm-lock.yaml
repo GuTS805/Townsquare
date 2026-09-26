@@ -41,6 +41,9 @@ importers:
       '@townsquare/math':
         specifier: workspace:*
         version: link:../../packages/math
+      '@townsquare/verifier':
+        specifier: workspace:^
+        version: link:../../packages/verifier
       cors:
         specifier: ^2.8.6
         version: 2.8.6
@@ -92,6 +95,24 @@ importers:
         version: 4.6.5
 
   packages/math: {}
+
+  packages/verifier:
+    dependencies:
+      '@semaphore-protocol/group':
+        specifier: ^4.14.3
+        version: 4.14.3
+      '@semaphore-protocol/proof':
+        specifier: ^4.14.3
+        version: 4.14.3(@semaphore-protocol/group@4.14.3)(@semaphore-protocol/identity@4.14.3)(@types/snarkjs@0.7.9)(commander@12.1.0)
+      '@townsquare/core':
+        specifier: workspace:*
+        version: link:../core
+      '@townsquare/math':
+        specifier: workspace:*
+        version: link:../math
+      viem:
+        specifier: ^2.56.9
+        version: 2.56.9(typescript@5.9.3)(zod@4.6.5)
 
 packages:
 

@@ -1,33 +1,11 @@
-import { ZERO_HASH, resultHash } from "@townsquare/core";
-import { computeMath, privacySafeMathResult, type OpinionPoint, type VoteRow } from "@townsquare/math";
+import { ZERO_HASH } from "@townsquare/core";
+import type { OpinionPoint } from "@townsquare/math";
+import { computeResult, type MathInputs } from "@townsquare/verifier";
 import type { Hex } from "viem";
 import type { Ctx } from "../context";
 
 // "You are here" points stay in memory only; the public result never carries pids.
 const pidPointsCache = new Map<string, Record<string, OpinionPoint>>();
-
-export interface MathInputs {
-  slug: string;
-  atSeq: number;
-  head: Hex;
-  votes: VoteRow[];
-  statementIds: number[];
-}
-
-// Same function the verifier runs for check E. computedAt is the log position,
-// not wall-clock time, and previousK is not used, so the output depends only on the log.
-export function computeResult(input: MathInputs) {
-  const { publicResult, pidPoints } = computeMath({
-    conversationId: input.slug,
-    votes: input.votes,
-    statementIds: input.statementIds,
-    computedAt: input.atSeq,
-    previousK: null,
-  });
-  const math = privacySafeMathResult(publicResult);
-  const hash = resultHash({ conv: input.slug, atSeq: input.atSeq, head: input.head, math });
-  return { math, hash, pidPoints };
-}
 
 export async function recomputeResults(ctx: Ctx, convId: string) {
   const inputs = await ctx.sql.begin("isolation level repeatable read", async (tx) => {

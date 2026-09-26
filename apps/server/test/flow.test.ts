@@ -28,6 +28,7 @@ import { createLogger } from "../src/logger";
 import { loadLogKey } from "../src/logkey";
 import { anchorAll } from "../src/services/anchor";
 import { recomputeResults } from "../src/services/results";
+import { checkReceipt, fetchChainData, verifyAll, type Bundle } from "@townsquare/verifier";
 
 const DB = process.env.TEST_DATABASE_URL;
 
@@ -203,6 +204,17 @@ describe.skipIf(!DB)(`server flow (${process.env.TEST_HUB_ADDRESS ? "onchain" : 
       expect(batchRoot(inBatch.map((e) => ({ seq: e.seq, eventHash: e.eventHash as `0x${string}` })))).toBe(b.root);
     }
 
+    // crash between sending an anchor tx and recording it: the batch is found onchain, not resent
+    if (ctx.relayer.enabled) {
+      const [last] = await ctx.sql<{ batch_id: number; tx_hash: string }[]>`
+        select batch_id, tx_hash from batches where conv_id = ${conv.id} order by batch_id desc limit 1`;
+      await ctx.sql`update batches set status = 'sent', tx_hash = null where conv_id = ${conv.id} and batch_id = ${last!.batch_id}`;
+      await anchorAll(ctx, true);
+      const [after] = await ctx.sql<{ status: string; tx_hash: string }[]>`
+        select status, tx_hash from batches where conv_id = ${conv.id} and batch_id = ${last!.batch_id}`;
+      expect(after).toEqual({ status: "confirmed", tx_hash: last!.tx_hash });
+    }
+
     // the events table rejects edits
     await expect(ctx.sql`update events set body = '{}' where conv_id = ${conv.id} and seq = 1`).rejects.toThrow(/append-only/);
 
@@ -215,5 +227,35 @@ describe.skipIf(!DB)(`server flow (${process.env.TEST_HUB_ADDRESS ? "onchain" : 
       expect(confirmed.every((b: { status: string; tx_hash: string }) => b.status === "confirmed" && b.tx_hash)).toBe(true);
     }
     expect((await vote(joined[0]!, 2, -1)).body.code).toBe("WRONG_PHASE");
+
+    // ---- verify it yourself ----
+    const fetchBundle = async () => (await call("GET", `/c/${slug}/bundle`)).body as Bundle;
+    const chainData = ctx.relayer.enabled
+      ? await fetchChainData(ctx.env.RPC_URL, ctx.relayer.hubAddress!, (await fetchBundle()).conversation.chain!.convId)
+      : null;
+    const statuses = (checks: Awaited<ReturnType<typeof verifyAll>>) => Object.fromEntries(checks.map((c) => [c.id, c.status]));
+
+    const honest = await verifyAll(await fetchBundle(), chainData);
+    for (const c of honest) expect(c.status, `${c.id}: ${c.failures.join("; ")}`).not.toBe("fail");
+    if (chainData) expect(statuses(honest)).toEqual({ A: "pass", B: "pass", C: "pass", D: "pass", E: "pass" });
+
+    const rc = await checkReceipt(receipts[4], await fetchBundle(), chainData);
+    expect(rc.verdict).toBe("included");
+
+    // tamper demo: an admin bypasses the trigger and flips one vote in the log
+    const target = receipts[4].seq as number;
+    const [orig] = await ctx.sql<{ body: any }[]>`select body from events where conv_id = ${conv.id} and seq = ${target}`;
+    const flipped = { ...orig!.body, action: { ...orig!.body.action, value: -orig!.body.action.value } };
+    await ctx.sql`alter table events disable trigger events_no_update`;
+    await ctx.sql`update events set body = ${ctx.sql.json(flipped)} where conv_id = ${conv.id} and seq = ${target}`;
+
+    const tampered = await verifyAll(await fetchBundle(), chainData);
+    expect(statuses(tampered)).toMatchObject({ D: "fail", E: "fail" });
+    expect(tampered.find((c) => c.id === "D")!.failures.join()).toContain(`seq ${target}`);
+    expect((await checkReceipt(receipts[4], await fetchBundle(), chainData)).verdict).toBe("host-misbehaved");
+
+    await ctx.sql`update events set body = ${ctx.sql.json(orig!.body)} where conv_id = ${conv.id} and seq = ${target}`;
+    await ctx.sql`alter table events enable trigger events_no_update`;
+    expect(statuses(await verifyAll(await fetchBundle(), chainData))).toEqual(statuses(honest));
   }, 120_000);
 });

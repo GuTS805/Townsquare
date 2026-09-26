@@ -16,6 +16,7 @@
     "@semaphore-protocol/proof": "^4.14.3",
     "@townsquare/core": "workspace:*",
     "@townsquare/math": "workspace:*",
+    "@townsquare/verifier": "workspace:^",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "helmet": "^8.3.0",

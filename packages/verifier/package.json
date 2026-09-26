@@ -1,0 +1,21 @@
+{
+  "name": "@townsquare/verifier",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@semaphore-protocol/group": "^4.14.3",
+    "@semaphore-protocol/proof": "^4.14.3",
+    "@townsquare/core": "workspace:*",
+    "@townsquare/math": "workspace:*",
+    "viem": "^2.56.9"
+  }
+}
