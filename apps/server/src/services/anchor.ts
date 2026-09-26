@@ -16,18 +16,32 @@ async function pendingConversations(ctx: Ctx): Promise<Pending[]> {
            coalesce((select max(to_seq) from batches b where b.conv_id = c.id), 0)::bigint as anchored_to
     from conversations c
     where c.next_seq - 1 > coalesce((select max(to_seq) from batches b where b.conv_id = c.id), 0)
-       or exists (select 1 from batches b where b.conv_id = c.id and b.status in ('pending', 'failed'))`;
+       or exists (select 1 from batches b where b.conv_id = c.id and b.status in ('pending', 'sent', 'failed'))`;
 }
 
-// One batch per conversation per tick. A failed batch is retried before a new one is cut,
+// The job loop and seal can both anchor; never let them race on one conversation.
+const locks = new Map<string, Promise<void>>();
+
+export function anchorConversation(ctx: Ctx, convId: string, force = false): Promise<void> {
+  const prev = locks.get(convId) ?? Promise.resolve();
+  const next = prev.then(() => anchorOnce(ctx, convId, force));
+  const settled = next.catch(() => undefined);
+  locks.set(convId, settled);
+  void settled.then(() => {
+    if (locks.get(convId) === settled) locks.delete(convId);
+  });
+  return next;
+}
+
+// One batch per conversation per call. An unfinished batch is retried before a new one is cut,
 // because the contract only accepts fromSeq == nextSeq.
-export async function anchorConversation(ctx: Ctx, convId: string, force = false): Promise<void> {
+async function anchorOnce(ctx: Ctx, convId: string, force: boolean): Promise<void> {
   const [p] = (await pendingConversations(ctx)).filter((x) => x.conv_id === convId);
   if (!p) return;
 
   let [batch] = await ctx.sql<{ batch_id: number; from_seq: number; to_seq: number; root: Hex; head: Hex }[]>`
     select batch_id, from_seq, to_seq, root, head from batches
-    where conv_id = ${convId} and status in ('pending', 'failed') order by batch_id limit 1`;
+    where conv_id = ${convId} and status in ('pending', 'sent', 'failed') order by batch_id limit 1`;
 
   if (!batch) {
     const count = p.last_seq - p.anchored_to;
@@ -53,6 +67,19 @@ export async function anchorConversation(ctx: Ctx, convId: string, force = false
   }
 
   try {
+    // A batch may already be onchain if we crashed after sending it. Resending would revert.
+    const chainNext = await ctx.relayer.onchainNextSeq(p.chain_conv_id);
+    if (chainNext !== null && chainNext > batch.to_seq) {
+      const tx = await ctx.relayer.findAnchorTx(p.chain_conv_id, batch.from_seq);
+      await ctx.sql`
+        update batches set status = 'confirmed', tx_hash = ${tx}
+        where conv_id = ${convId} and batch_id = ${batch.batch_id}`;
+      ctx.log.warn({ convId, batch: batch.batch_id, tx }, "batch was already anchored, recovered");
+      return;
+    }
+    if (chainNext !== null && chainNext !== batch.from_seq) {
+      throw new Error(`chain expects seq ${chainNext}, batch starts at ${batch.from_seq}`);
+    }
     await ctx.sql`update batches set status = 'sent' where conv_id = ${convId} and batch_id = ${batch.batch_id}`;
     const tx = await ctx.relayer.anchor(p.chain_conv_id, batch.root, batch.from_seq, batch.to_seq, batch.head);
     await ctx.sql`

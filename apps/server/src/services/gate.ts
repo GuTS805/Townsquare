@@ -59,9 +59,12 @@ export async function passCodeGate(
     }
 
     let txHash: Hex | null = null;
+    let blockNumber = 0;
     if (conv.chain_conv_id) {
       try {
-        txHash = await ctx.relayer.addMember(conv.chain_conv_id, commitment, nullifier, proofHash);
+        const added = await ctx.relayer.addMember(conv.chain_conv_id, commitment, nullifier, proofHash);
+        txHash = added?.txHash ?? null;
+        blockNumber = added?.blockNumber ?? 0;
       } catch (e) {
         // Roll the local record back so the code can be retried.
         await ctx.sql.begin(async (tx) => {
@@ -74,7 +77,7 @@ export async function passCodeGate(
       await ctx.sql`update gate_records set tx_hash = ${txHash} where conv_id = ${conv.id} and nullifier = ${nullifier}`;
     }
 
-    const m = await recordMember(ctx, conv.id, commitment);
+    const m = await recordMember(ctx, conv.id, commitment, blockNumber);
     return { memberIndex: m.leafIndex + 1, txHash };
   });
 }

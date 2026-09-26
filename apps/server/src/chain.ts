@@ -19,6 +19,7 @@ export const hubAbi = parseAbi([
   "function anchor(uint256 id, bytes32 root, uint64 fromSeq, uint64 toSeq, bytes32 head)",
   "function close(uint256 id, bytes32 finalResultHash)",
   "function gateNullifierUsed(uint256 id, uint256 nullifier) view returns (bool)",
+  "function conversations(uint256 id) view returns (uint256 groupId, bytes32 configHash, uint8 gate, bytes32 codeRoot, uint64 nextSeq, uint64 batches, bytes32 finalResultHash, bool closed, bool exists)",
   "event Created(uint256 indexed id, uint256 groupId, bytes32 configHash, uint8 gate, bytes32 codeRoot)",
   "event MemberAdded(uint256 indexed id, uint256 commitment, uint256 gateNullifier, bytes32 proofHash)",
   "event BatchAnchored(uint256 indexed id, uint64 batch, bytes32 root, uint64 fromSeq, uint64 toSeq, bytes32 head)",
@@ -34,8 +35,11 @@ export interface Relayer {
   chainId: number;
   pending(): number;
   createConversation(configHash: Hex, gate: 0 | 1, codeRoot: Hex): Promise<{ txHash: Hex; convId: string; groupId: string } | null>;
-  addMember(convId: string, commitment: string, gateNullifier: string, proofHash: Hex): Promise<Hex | null>;
+  addMember(convId: string, commitment: string, gateNullifier: string, proofHash: Hex): Promise<{ txHash: Hex; blockNumber: number } | null>;
   anchor(convId: string, root: Hex, fromSeq: number, toSeq: number, head: Hex): Promise<Hex | null>;
+  // Chain view used to recover batches whose outcome was lost (crash between send and record).
+  onchainNextSeq(convId: string): Promise<number | null>;
+  findAnchorTx(convId: string, fromSeq: number): Promise<Hex | null>;
   close(convId: string, finalResultHash: Hex): Promise<Hex | null>;
   idle(): Promise<void>;
 }
@@ -59,6 +63,8 @@ export function createRelayer(env: Env, log: Logger): Relayer {
       addMember: off,
       anchor: off,
       close: off,
+      onchainNextSeq: off,
+      findAnchorTx: off,
       idle: () => queue.onIdle(),
     };
   }
@@ -99,7 +105,7 @@ export function createRelayer(env: Env, log: Logger): Relayer {
     },
     async addMember(convId, commitment, gateNullifier, proofHash) {
       const r = await send("addMember", [BigInt(convId), BigInt(commitment), BigInt(gateNullifier), proofHash]);
-      return r.transactionHash;
+      return { txHash: r.transactionHash, blockNumber: Number(r.blockNumber) };
     },
     async anchor(convId, root, fromSeq, toSeq, head) {
       const r = await send("anchor", [BigInt(convId), root, BigInt(fromSeq), BigInt(toSeq), head]);
@@ -108,6 +114,25 @@ export function createRelayer(env: Env, log: Logger): Relayer {
     async close(convId, finalResultHash) {
       const r = await send("close", [BigInt(convId), finalResultHash]);
       return r.transactionHash;
+    },
+    async onchainNextSeq(convId) {
+      const c = await publicClient.readContract({ address: hub, abi: hubAbi, functionName: "conversations", args: [BigInt(convId)] });
+      return Number(c[4]);
+    },
+    async findAnchorTx(convId, fromSeq) {
+      try {
+        const logs = await publicClient.getContractEvents({
+          address: hub,
+          abi: hubAbi,
+          eventName: "BatchAnchored",
+          args: { id: BigInt(convId) },
+          fromBlock: "earliest",
+        });
+        return logs.find((l) => Number(l.args.fromSeq) === fromSeq)?.transactionHash ?? null;
+      } catch {
+        // some public RPCs cap log ranges; the verifier reads logs itself anyway
+        return null;
+      }
     },
     idle: () => queue.onIdle(),
   };
