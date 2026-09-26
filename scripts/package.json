@@ -1,0 +1,25 @@
+{
+  "name": "@townsquare/scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "seed": "tsx seed-demo.ts",
+    "attack:sybil": "tsx attack-sybil.ts",
+    "attack:replay": "tsx attack-replay.ts",
+    "verify": "tsx verify.ts",
+    "keygen": "tsx keygen.ts",
+    "tamper": "tsx --env-file-if-exists=../.env tamper-db.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@semaphore-protocol/group": "^4.14.3",
+    "@semaphore-protocol/identity": "^4.14.3",
+    "@semaphore-protocol/proof": "^4.14.3",
+    "@townsquare/core": "workspace:*",
+    "@townsquare/verifier": "workspace:*",
+    "postgres": "^3.4.9",
+    "viem": "^2.56.9"
+  }
+}

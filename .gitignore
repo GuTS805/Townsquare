@@ -14,3 +14,7 @@ packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/*/31337/
 *.tsbuildinfo
+
+# demo state (admin token, identities)
+scripts/.demo-state.json
+scripts/.tamper-backup.json
