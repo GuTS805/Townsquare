@@ -1,0 +1,20 @@
+{
+  "name": "@townsquare/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@openzeppelin/merkle-tree": "^1.0.8",
+    "canonicalize": "^5.1.0",
+    "viem": "^2.56.9",
+    "zod": "^4.6.5"
+  }
+}
