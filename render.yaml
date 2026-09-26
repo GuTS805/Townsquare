@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: townsquare-server
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter @townsquare/server start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: RPC_URL
+        value: https://sepolia.base.org
+      - key: CHAIN_ID
+        value: "84532"
+      - key: RELAYER_PRIVATE_KEY
+        sync: false
+      - key: HUB_ADDRESS
+        sync: false
+      - key: LOG_SIGNING_KEY
+        sync: false
+      - key: APP_NULLIFIER_SEED
+        sync: false
+      - key: AADHAAR_MODE
+        value: test
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: openai/gpt-oss-120b
+      - key: LLM_API_KEY
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
