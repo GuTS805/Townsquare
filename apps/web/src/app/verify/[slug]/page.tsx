@@ -14,6 +14,7 @@ const CHECKS: { id: string; name: string; catches: string }[] = [
   { id: "C", name: "Actions", catches: "forged or replayed votes" },
   { id: "D", name: "Log integrity", catches: "edited, deleted or reordered events" },
   { id: "E", name: "Results", catches: "cooked numbers" },
+  { id: "F", name: "AI claims", catches: "hallucinated consensus" },
 ];
 
 export default function Verify({ params }: { params: Promise<{ slug: string }> }) {

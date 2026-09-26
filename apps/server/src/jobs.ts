@@ -1,6 +1,7 @@
 import PQueue from "p-queue";
 import type { Ctx } from "./context";
 import { anchorAll } from "./services/anchor";
+import { summarize } from "./services/ai";
 import { recomputeResults } from "./services/results";
 
 export interface Jobs {
@@ -33,6 +34,8 @@ export function createJobs(getCtx: () => Ctx): Jobs {
         setTimeout(() => {
           mathTimers.delete(convId);
           void queue.add(safe("math", () => recomputeResults(getCtx(), convId)));
+          // throttled inside to once per 10 minutes per conversation
+          void queue.add(safe("summary", () => summarize(getCtx(), convId)));
         }, MATH_DEBOUNCE_MS),
       );
     },

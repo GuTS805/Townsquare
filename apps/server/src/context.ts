@@ -4,6 +4,7 @@ import type { Logger } from "./logger";
 import type { LogKey } from "./logkey";
 import type { Relayer } from "./chain";
 import type { Jobs } from "./jobs";
+import type { Llm } from "./services/ai";
 
 export interface Ctx {
   sql: Sql;
@@ -12,4 +13,5 @@ export interface Ctx {
   relayer: Relayer;
   logKey: LogKey;
   jobs: Jobs;
+  llm: Llm | null;
 }

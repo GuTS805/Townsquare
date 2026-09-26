@@ -6,6 +6,7 @@ import { loadEnv } from "./env";
 import { createJobs } from "./jobs";
 import { createLogger } from "./logger";
 import { loadLogKey } from "./logkey";
+import { createLlm } from "./services/ai";
 
 const log = createLogger();
 const env = loadEnv();
@@ -14,10 +15,10 @@ if (logKey.ephemeral) log.warn("LOG_SIGNING_KEY not set, using a throwaway recei
 
 let ctx!: Ctx;
 const jobs = createJobs(() => ctx);
-ctx = { sql: connect(env.DATABASE_URL), env, log, relayer: createRelayer(env, log), logKey, jobs };
+ctx = { sql: connect(env.DATABASE_URL), env, log, relayer: createRelayer(env, log), logKey, jobs, llm: createLlm(env) };
 
 const server = createApp(ctx).listen(env.PORT, () => {
-  log.info({ port: env.PORT, onchain: ctx.relayer.enabled }, "townsquare server listening");
+  log.info({ port: env.PORT, onchain: ctx.relayer.enabled, ai: ctx.llm?.model ?? null }, "townsquare server listening");
 });
 jobs.start();
 

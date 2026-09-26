@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import {
   checkActions,
+  checkClaims,
   checkLog,
   checkMembership,
   checkPseudonyms,
@@ -27,6 +28,7 @@ self.onmessage = async (ev: MessageEvent<{ bundle: Bundle; rpcUrl: string }>) =>
       () => checkActions(bundle),
       () => checkLog(bundle, chain),
       () => checkResults(bundle, chain),
+      () => checkClaims(bundle),
     ]) {
       self.postMessage({ type: "check", check: await run() });
     }

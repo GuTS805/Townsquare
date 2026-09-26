@@ -11,6 +11,7 @@ export interface Bundle {
     semaphoreAddress: string;
     onchain: boolean;
     logPublicKey: string;
+    aadhaarMode?: "test" | "production";
   };
   conversation: {
     slug: string;
@@ -28,6 +29,7 @@ export interface Bundle {
     proof: unknown;
     proof_hash: Hex;
     tx_hash: Hex | null;
+    t?: string;
   }[];
   members: { leaf_index: number; commitment: string; root_after: string; size_after: number }[];
   events: {
@@ -42,7 +44,7 @@ export interface Bundle {
     chainHead: Hex;
   }[];
   batches: { batch_id: number; from_seq: number; to_seq: number; root: Hex; head: Hex; tx_hash: Hex | null; status: string }[];
-  result: { at_seq: number; math: unknown; result_hash: Hex; params: { head: Hex } } | null;
+  result: { at_seq: number; math: unknown; result_hash: Hex; params: { head: Hex }; synthesis?: unknown; model?: string | null } | null;
 }
 
 // Read straight from the hub contract through a public RPC, never from the API.
@@ -53,7 +55,7 @@ export interface ChainData {
   closed: { finalResultHash: Hex } | null;
 }
 
-export type CheckId = "A" | "B" | "C" | "D" | "E";
+export type CheckId = "A" | "B" | "C" | "D" | "E" | "F";
 
 export interface CheckResult {
   id: CheckId;

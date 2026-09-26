@@ -59,7 +59,21 @@ describe.skipIf(!DB)(`server flow (${process.env.TEST_HUB_ADDRESS ? "onchain" : 
     } as NodeJS.ProcessEnv);
     const log = createLogger("silent");
     let c!: Ctx;
-    c = { sql: connect(env.DATABASE_URL), env, log, relayer: createRelayer(env, log), logKey: await loadLogKey(undefined), jobs: createJobs(() => c) };
+    // stands in for Groq: one claim the numbers support, two they don't
+    const llm = {
+      model: "fake-llm",
+      complete: async () =>
+        JSON.stringify({
+          overview: "Most people want longer hours.",
+          themes: [{ title: "Opening hours", sids: [1, 3] }, { title: "Invented", sids: [99] }],
+          commonGround: [
+            { claim: "People agree the library should stay open later.", sids: [1] },
+            { claim: "Everyone loves the terrace idea.", sids: [4] },
+          ],
+          tensions: [],
+        }),
+    };
+    c = { sql: connect(env.DATABASE_URL), env, log, relayer: createRelayer(env, log), logKey: await loadLogKey(undefined), jobs: createJobs(() => c), llm };
     ctx = c;
     server = createApp(ctx).listen(0);
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -237,7 +251,23 @@ describe.skipIf(!DB)(`server flow (${process.env.TEST_HUB_ADDRESS ? "onchain" : 
 
     const honest = await verifyAll(await fetchBundle(), chainData);
     for (const c of honest) expect(c.status, `${c.id}: ${c.failures.join("; ")}`).not.toBe("fail");
-    if (chainData) expect(statuses(honest)).toEqual({ A: "pass", B: "pass", C: "pass", D: "pass", E: "pass" });
+    if (chainData) expect(statuses(honest)).toMatchObject({ A: "pass", B: "pass", C: "pass", D: "pass", E: "pass" });
+
+    // the sealed result carries a summary with only the supported claims
+    const summary = (await fetchBundle()).result!.synthesis as any;
+    expect(summary.commonGround.map((x: any) => x.sids)).toEqual([[1]]);
+    expect(summary.themes.map((x: any) => x.title)).toEqual(["Opening hours"]);
+    expect(honest.find((c) => c.id === "F")!.status).toBe("pass");
+
+    // a host who edits the summary to add unsupported consensus is caught by F
+    await ctx.sql`
+      update results set synthesis = jsonb_set(synthesis, '{commonGround}', synthesis->'commonGround' || '[{"claim":"All agree on the terrace","sids":[4]}]')
+      where conv_id = ${conv.id}`;
+    const faked = await verifyAll(await fetchBundle(), chainData);
+    expect(faked.find((c) => c.id === "F")!.failures.join()).toContain("#4");
+    await ctx.sql`
+      update results set synthesis = jsonb_set(synthesis, '{commonGround}', (synthesis->'commonGround') - 1)
+      where conv_id = ${conv.id}`;
 
     const rc = await checkReceipt(receipts[4], await fetchBundle(), chainData);
     expect(rc.verdict).toBe("included");

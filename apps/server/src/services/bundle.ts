@@ -46,5 +46,6 @@ export function meta(ctx: Ctx) {
     aadhaarMode: ctx.env.AADHAAR_MODE,
     software: "townsquare@0.1.0",
     math: "pocket-polis@7a725cd",
+    aiModel: ctx.llm?.model ?? null,
   };
 }

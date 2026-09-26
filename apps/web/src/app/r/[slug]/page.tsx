@@ -24,13 +24,19 @@ interface MathResult {
   statementStats: StatementStat[];
   bridging?: { statements: { sid: number; score: number }[] } | null;
 }
+interface Synthesis {
+  overview: string;
+  themes: { title: string; sids: number[] }[];
+  commonGround: { claim: string; sids: number[] }[];
+  tensions: { groupA: string; groupB: string; claim: string; sids: number[] }[];
+}
 interface Results {
   title: string;
   question: string;
   phase: string;
   finalResultHash: string | null;
   statements: { sid: number; text: string; status: string; reason_code: string | null }[];
-  result: { at_seq: number; math: MathResult; result_hash: string; created_at: string } | null;
+  result: { at_seq: number; math: MathResult; result_hash: string; created_at: string; synthesis: Synthesis | null; model: string | null } | null;
   lastAnchor: { batch_id: number; to_seq: number; tx_hash: string | null; created_at: string } | null;
 }
 
@@ -125,6 +131,8 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
             </div>
           </div>
 
+          {data.result?.synthesis && <Summary s={data.result.synthesis} model={data.result.model} text={text} slug={slug} />}
+
           <div className="grid gap-4 md:grid-cols-2">
             {math.groups.map((g) => (
               <div key={g.id} className="card border-l-4" style={{ borderLeftColor: GROUP_COLORS[g.id % GROUP_COLORS.length] }}>
@@ -200,5 +208,69 @@ function AnchorBadge({ slug, data }: { slug: string; data: Results }) {
       {data.phase === "sealed" ? "Sealed ✓ · " : ""}
       {a ? `Anchored ${ago === 0 ? "just now" : `${ago} min ago`}` : "Not anchored yet"} · Verify it yourself →
     </Link>
+  );
+}
+
+function Summary({ s, model, text, slug }: { s: Synthesis; model: string | null; text: Map<number, string>; slug: string }) {
+  const n = s.themes.length + s.commonGround.length + s.tensions.length;
+  const Cite = ({ sids }: { sids: number[] }) => (
+    <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
+      {sids.map((sid) => (
+        <span key={sid} title={text.get(sid)} className="cursor-help rounded-full bg-indigo-soft px-1.5 py-0.5 text-[10px] font-semibold text-indigo">
+          #{sid}
+        </span>
+      ))}
+    </span>
+  );
+  return (
+    <div className="card">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-semibold">AI summary</h2>
+        <Link href={`/verify/${slug}`} className="text-xs text-muted underline">
+          {n} cited claims, each checked against the numbers (check F)
+        </Link>
+      </div>
+      <p className="mt-2 text-sm leading-relaxed">{s.overview}</p>
+      {s.commonGround.length > 0 && (
+        <>
+          <h3 className="mt-4 text-sm font-semibold">Common ground</h3>
+          <ul className="mt-1 space-y-1 text-sm">
+            {s.commonGround.map((c, i) => (
+              <li key={i}>
+                {c.claim}
+                <Cite sids={c.sids} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {s.tensions.length > 0 && (
+        <>
+          <h3 className="mt-4 text-sm font-semibold">Where groups differ</h3>
+          <ul className="mt-1 space-y-1 text-sm">
+            {s.tensions.map((t, i) => (
+              <li key={i}>
+                <span className="text-muted">
+                  {t.groupA} vs {t.groupB}:
+                </span>{" "}
+                {t.claim}
+                <Cite sids={t.sids} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {s.themes.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {s.themes.map((t, i) => (
+            <span key={i} className="rounded-full border border-line px-3 py-1 text-xs">
+              {t.title}
+              <Cite sids={t.sids} />
+            </span>
+          ))}
+        </div>
+      )}
+      {model && <p className="mt-4 text-[11px] text-muted">Written by {model}. Claims the vote numbers don't support are removed automatically.</p>}
+    </div>
   );
 }

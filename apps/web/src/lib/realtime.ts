@@ -19,7 +19,7 @@ export function subscribeToResults(onChange: () => void): (() => void) | null {
   if (!sb) return null;
   const channel = sb
     .channel(`results-${Math.random().toString(36).slice(2)}`)
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "results" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "results" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "batches" }, onChange)
     .subscribe();
   return () => void sb.removeChannel(channel);

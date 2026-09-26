@@ -2,6 +2,7 @@ import { TsError } from "@townsquare/core";
 import type { Ctx } from "../context";
 import type { ConversationRow } from "../db";
 import { anchorConversation, hasUnanchored } from "./anchor";
+import { summarize } from "./ai";
 import { latestResult, recomputeResults } from "./results";
 import { stopVoting } from "./conversations";
 
@@ -17,6 +18,8 @@ export async function sealConversation(ctx: Ctx, conv: ConversationRow) {
   if (await hasUnanchored(ctx, conv.id)) throw new TsError("CHAIN_ERROR", "final anchor failed, try again");
 
   await recomputeResults(ctx, conv.id);
+  // the summary isn't part of the result hash, but the sealed report should have one
+  await summarize(ctx, conv.id, true).catch((err) => ctx.log.warn({ err }, "final summary failed"));
   const result = await latestResult(ctx, conv.id);
   if (!result) throw new TsError("INTERNAL", "no result to seal");
 
