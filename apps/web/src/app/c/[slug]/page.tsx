@@ -3,7 +3,8 @@
 import { STATEMENT_MAX, STATEMENT_MIN, joinMessage, joinScope, normalizeStatement } from "@townsquare/core";
 import Link from "next/link";
 import { use, useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, api, friendly, txUrl, type PublicConversation } from "@/lib/api";
+import { proveAadhaar, readQrImage, type AadhaarStage } from "@/lib/aadhaar";
+import { ApiError, api, friendly, txUrl, type Meta, type PublicConversation } from "@/lib/api";
 import { proveJoin, type ProveStage } from "@/lib/prove";
 import {
   backupFile,
@@ -146,7 +147,7 @@ function Gate({ slug, conv, onDone }: { slug: string; conv: PublicConversation; 
           <p className="text-center text-xs text-muted">The code is used once. Afterwards nothing links it to your votes.</p>
         </div>
       ) : (
-        <div className="card text-sm text-muted">Anon Aadhaar sign-in is coming soon.</div>
+        <AadhaarGate slug={slug} conv={conv} onDone={onDone} />
       )}
       <RestoreLink slug={slug} />
     </div>
@@ -427,6 +428,95 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
 
       {error && <p className="text-center text-sm text-disagree">{error}</p>}
       {receipt !== null && <p className="rounded-xl bg-indigo-soft py-2 text-center text-xs text-indigo">Receipt #{receipt} saved on this device</p>}
+    </div>
+  );
+}
+
+const AADHAAR_STAGES: { key: AadhaarStage; label: string }[] = [
+  { key: "reading", label: "Reading the QR" },
+  { key: "signature", label: "Checking the UIDAI signature" },
+  { key: "fetching-zkey", label: "Downloading the proving key (large, first time only)" },
+  { key: "proving", label: "Generating your zero-knowledge proof" },
+  { key: "done", label: "Joining the group" },
+];
+
+function AadhaarGate({ slug, conv, onDone }: { slug: string; conv: PublicConversation; onDone: (index: number, txHash: string | null) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [stage, setStage] = useState<AadhaarStage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<Meta["aadhaarMode"] | null>(null);
+
+  useEffect(() => {
+    void api<Meta>("/meta").then((m) => setMode(m.aadhaarMode)).catch(() => setMode("test"));
+  }, []);
+
+  async function run(file: File) {
+    setError(null);
+    try {
+      setStage("reading");
+      const qrData = await readQrImage(file);
+      const certificate = await (await fetch("/anon-aadhaar-test-certificate.pem")).text();
+      const { identity } = await identityFor(slug);
+      const proof = await proveAadhaar(
+        { qrData, certificate, nullifierSeed: conv.gate.nullifierSeed!, signal: identity.commitment.toString(), reveal: conv.gate.reveal },
+        (s) => setStage(s === "fetching-wasm" ? "fetching-zkey" : s),
+      );
+      const r = await api<{ memberIndex: number; txHash: string | null }>(`/c/${slug}/gate/aadhaar`, {
+        body: { proof, commitment: identity.commitment.toString() },
+      });
+      await markRegistered(slug, r.memberIndex, r.txHash);
+      onDone(r.memberIndex, r.txHash);
+    } catch (e) {
+      setError(friendly(e));
+      setStage(null);
+    }
+  }
+
+  if (mode === "production") {
+    return <div className="card text-sm text-muted">This build runs Anon Aadhaar in test mode only. Ask the host for an invite code.</div>;
+  }
+
+  if (stage) {
+    const at = AADHAAR_STAGES.findIndex((s) => s.key === stage);
+    return (
+      <div className="card space-y-4">
+        <h2 className="font-semibold">Building your proof…</h2>
+        <ul className="space-y-2 text-sm">
+          {AADHAAR_STAGES.map((s, i) => (
+            <li key={s.key} className={i < at ? "text-teal" : i === at ? "font-semibold" : "text-muted"}>
+              {i < at ? "✓" : i === at ? "●" : "○"} {s.label}
+            </li>
+          ))}
+        </ul>
+        <p className="rounded-xl bg-warm-soft px-3 py-2 text-center text-xs text-warm">Please don't close this tab. This can take a few minutes on a phone.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card space-y-3">
+      <button className="btn-primary w-full" onClick={() => input.current?.click()}>
+        Verify with Aadhaar (ZK)
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void run(f);
+          e.target.value = "";
+        }}
+      />
+      <p className="text-center text-xs text-muted">
+        Upload a screenshot of the Secure QR. It never leaves this phone; only a zero-knowledge proof does.
+        {conv.gate.reveal.includes("ageAbove18") && " The proof shows you're over 18 and nothing else."}
+      </p>
+      <p className="rounded-xl bg-indigo-soft px-3 py-2 text-center text-xs text-indigo">
+        Test mode: use a test QR from the Anon Aadhaar test QR generator, not a real Aadhaar.
+      </p>
+      {error && <p className="text-sm text-disagree">{error}</p>}
     </div>
   );
 }

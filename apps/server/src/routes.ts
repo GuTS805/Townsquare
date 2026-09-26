@@ -19,7 +19,7 @@ import {
   publicView,
   requireAdmin,
 } from "./services/conversations";
-import { passCodeGate } from "./services/gate";
+import { passAadhaarGate, passCodeGate } from "./services/gate";
 import { join, joinSchema } from "./services/join";
 import { listCommitments } from "./services/members";
 import { latestResult, whereAmI } from "./services/results";
@@ -47,7 +47,7 @@ export function routes(ctx: Ctx): Router {
   // ---- host ----
   r.post(
     "/conversations",
-    rateLimit("create", 5),
+    rateLimit("create", 10),
     h(async (req, res) => {
       const input = parse(createConversationSchema, req.body);
       const created = await createConversation(ctx, input);
@@ -118,7 +118,7 @@ export function routes(ctx: Ctx): Router {
 
   r.post(
     "/c/:slug/gate/code",
-    rateLimit("gate", 10),
+    rateLimit("gate", 300, 150),
     h(async (req, res) => {
       const conv = await getConversation(ctx, slugOf(req));
       const { code, commitment } = parse(codeGateSchema, req.body);
@@ -127,8 +127,18 @@ export function routes(ctx: Ctx): Router {
   );
 
   r.post(
+    "/c/:slug/gate/aadhaar",
+    rateLimit("gate", 300, 150),
+    h(async (req, res) => {
+      const conv = await getConversation(ctx, slugOf(req));
+      const { proof, commitment } = parse(z.object({ proof: z.unknown(), commitment: z.string().regex(/^\d+$/) }), req.body);
+      res.status(201).json(await passAadhaarGate(ctx, conv, proof, commitment));
+    }),
+  );
+
+  r.post(
     "/c/:slug/join",
-    rateLimit("join", 10),
+    rateLimit("join", 300, 150),
     h(async (req, res) => {
       const conv = await getConversation(ctx, slugOf(req));
       res.json(await join(ctx, conv, parse(joinSchema, req.body)));
@@ -146,7 +156,8 @@ export function routes(ctx: Ctx): Router {
 
   r.post(
     "/c/:slug/actions",
-    rateLimit("actions", 120, 30),
+    rateLimit("actions-conn", 1200, 400),
+    rateLimit("actions", 60, 30, (req) => (typeof req.body?.action?.pid === "string" ? `pid:${req.body.action.pid}` : undefined)),
     h(async (req, res) => {
       const conv = await getConversation(ctx, slugOf(req));
       const { action, sig } = parse(signedActionSchema, req.body);
@@ -212,7 +223,7 @@ export function routes(ctx: Ctx): Router {
 
   r.get(
     "/c/:slug/bundle",
-    rateLimit("bundle", 10),
+    rateLimit("bundle", 60, 30),
     h(async (req, res) => {
       const conv = await getConversation(ctx, slugOf(req));
       res.json(await auditBundle(ctx, conv));

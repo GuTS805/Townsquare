@@ -5,7 +5,7 @@
     "allowJs": false,
     "incremental": true,
     "plugins": [{ "name": "next" }],
-    "paths": { "@/*": ["./src/*"] }
+    "paths": { "@/*": ["./src/*"], "@anon-aadhaar/core": ["./src/types/anon-aadhaar-core.d.ts"] }
   },
   "include": ["next-env.d.ts", "src", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

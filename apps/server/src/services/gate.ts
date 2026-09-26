@@ -1,4 +1,5 @@
 import { TsError, codeTree, hashJson, inviteCodeHash } from "@townsquare/core";
+import { aadhaarPolicyFailure, aadhaarProofSchema, verifyAadhaarSnark } from "@townsquare/verifier";
 import { hexToBigInt, type Hex } from "viem";
 import type { Ctx } from "../context";
 import type { ConversationRow } from "../db";
@@ -17,42 +18,36 @@ function serial<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
-export async function passCodeGate(
-  ctx: Ctx,
-  conv: ConversationRow,
-  code: string,
-  commitment: string,
-): Promise<MemberAddedResult> {
-  if (conv.gate_type !== "invite_code") throw new TsError("BAD_REQUEST", "this conversation does not use invite codes");
+function requireOpenGate(conv: ConversationRow, type: ConversationRow["gate_type"]) {
+  if (conv.gate_type !== type) throw new TsError("BAD_REQUEST", `this conversation does not use ${type === "invite_code" ? "invite codes" : "Anon Aadhaar"}`);
   if (conv.phase === "closed" || conv.phase === "sealed") throw new TsError("WRONG_PHASE", "registration is closed");
+}
 
-  const codeHash = inviteCodeHash(conv.slug, code);
-  const nullifier = hexToBigInt(codeHash).toString();
+interface Admission {
+  gateType: ConversationRow["gate_type"];
+  nullifier: string;
+  commitment: string;
+  proof: unknown;
+  codeHash?: Hex;
+}
 
-  const all = await ctx.sql<{ code_hash: Hex; used_at: Date | null }[]>`
-    select code_hash, used_at from invite_codes where conv_id = ${conv.id} order by code_hash`;
-  const row = all.find((r) => r.code_hash === codeHash);
-  if (!row) throw new TsError("BAD_CODE", "invite code not valid for this conversation");
-  if (row.used_at) throw new TsError("CODE_USED", "invite code already used");
-
-  // Public evidence for check A: the code hash and its path to the onchain codeRoot.
-  const tree = codeTree(all.map((r) => r.code_hash));
-  let proofPath: Hex[] = [];
-  for (const [i, leaf] of tree.entries()) if (leaf[0] === codeHash) proofPath = tree.getProof(i) as Hex[];
-  const proof = { codeHash, merkleProof: proofPath };
-  const proofHash = hashJson(proof);
-
+// Record the gate evidence, add the commitment onchain, then mirror the member locally.
+// If the chain rejects it, the local record is rolled back so the credential can be retried.
+async function admit(ctx: Ctx, conv: ConversationRow, a: Admission): Promise<MemberAddedResult> {
+  const proofHash = hashJson(a.proof);
   return serial(async () => {
     try {
       await ctx.sql.begin(async (tx) => {
-        const used = await tx`
-          update invite_codes set used_at = date_trunc('minute', now())
-          where conv_id = ${conv.id} and code_hash = ${codeHash} and used_at is null
-          returning code_hash`;
-        if (used.length === 0) throw new TsError("CODE_USED", "invite code already used");
+        if (a.codeHash) {
+          const used = await tx`
+            update invite_codes set used_at = date_trunc('minute', now())
+            where conv_id = ${conv.id} and code_hash = ${a.codeHash} and used_at is null
+            returning code_hash`;
+          if (used.length === 0) throw new TsError("CODE_USED", "invite code already used");
+        }
         await tx`
           insert into gate_records (conv_id, gate_type, nullifier, commitment, proof, proof_hash)
-          values (${conv.id}, 'invite_code', ${nullifier}, ${commitment}, ${tx.json(proof)}, ${proofHash})`;
+          values (${conv.id}, ${a.gateType}, ${a.nullifier}, ${a.commitment}, ${tx.json(a.proof as never)}, ${proofHash})`;
       });
     } catch (e) {
       throw mapUniqueViolation(e);
@@ -62,24 +57,70 @@ export async function passCodeGate(
     let blockNumber = 0;
     if (conv.chain_conv_id) {
       try {
-        const added = await ctx.relayer.addMember(conv.chain_conv_id, commitment, nullifier, proofHash);
+        const added = await ctx.relayer.addMember(conv.chain_conv_id, a.commitment, a.nullifier, proofHash);
         txHash = added?.txHash ?? null;
         blockNumber = added?.blockNumber ?? 0;
       } catch (e) {
-        // Roll the local record back so the code can be retried.
         await ctx.sql.begin(async (tx) => {
-          await tx`delete from gate_records where conv_id = ${conv.id} and nullifier = ${nullifier}`;
-          await tx`update invite_codes set used_at = null where conv_id = ${conv.id} and code_hash = ${codeHash}`;
+          await tx`delete from gate_records where conv_id = ${conv.id} and nullifier = ${a.nullifier}`;
+          if (a.codeHash) await tx`update invite_codes set used_at = null where conv_id = ${conv.id} and code_hash = ${a.codeHash}`;
         });
         ctx.log.error({ err: e, slug: conv.slug }, "addMember failed");
         throw new TsError("CHAIN_ERROR", "could not add member onchain, try again");
       }
-      await ctx.sql`update gate_records set tx_hash = ${txHash} where conv_id = ${conv.id} and nullifier = ${nullifier}`;
+      await ctx.sql`update gate_records set tx_hash = ${txHash} where conv_id = ${conv.id} and nullifier = ${a.nullifier}`;
     }
 
-    const m = await recordMember(ctx, conv.id, commitment, blockNumber);
+    const m = await recordMember(ctx, conv.id, a.commitment, blockNumber);
     return { memberIndex: m.leafIndex + 1, txHash };
   });
+}
+
+export async function passCodeGate(ctx: Ctx, conv: ConversationRow, code: string, commitment: string): Promise<MemberAddedResult> {
+  requireOpenGate(conv, "invite_code");
+  const codeHash = inviteCodeHash(conv.slug, code);
+
+  const all = await ctx.sql<{ code_hash: Hex; used_at: Date | null }[]>`
+    select code_hash, used_at from invite_codes where conv_id = ${conv.id} order by code_hash`;
+  const row = all.find((r) => r.code_hash === codeHash);
+  if (!row) throw new TsError("BAD_CODE", "invite code not valid for this conversation");
+  if (row.used_at) throw new TsError("CODE_USED", "invite code already used");
+
+  // Public evidence for check A: the code hash and its path to the onchain codeRoot.
+  const tree = codeTree(all.map((r) => r.code_hash));
+  let merkleProof: Hex[] = [];
+  for (const [i, leaf] of tree.entries()) if (leaf[0] === codeHash) merkleProof = tree.getProof(i) as Hex[];
+
+  return admit(ctx, conv, {
+    gateType: "invite_code",
+    nullifier: hexToBigInt(codeHash).toString(),
+    commitment,
+    proof: { codeHash, merkleProof },
+    codeHash,
+  });
+}
+
+export async function passAadhaarGate(ctx: Ctx, conv: ConversationRow, rawProof: unknown, commitment: string): Promise<MemberAddedResult> {
+  requireOpenGate(conv, "anon_aadhaar");
+  const parsed = aadhaarProofSchema.safeParse(rawProof);
+  if (!parsed.success) throw new TsError("BAD_PROOF", "not an Anon Aadhaar proof");
+  const proof = parsed.data;
+
+  const why = aadhaarPolicyFailure(proof, {
+    mode: ctx.env.AADHAAR_MODE,
+    nullifierSeed: conv.nullifier_seed ?? "",
+    commitment,
+    freshnessDays: conv.freshness_days,
+    reveal: conv.reveal,
+    at: Math.floor(Date.now() / 1000),
+  });
+  if (why) throw new TsError("BAD_PROOF", why);
+
+  const [dup] = await ctx.sql`select 1 from gate_records where conv_id = ${conv.id} and nullifier = ${proof.nullifier}`;
+  if (dup) throw new TsError("GATE_NULLIFIER_USED", "this Aadhaar already registered here");
+  if (!(await verifyAadhaarSnark(proof))) throw new TsError("BAD_PROOF", "Anon Aadhaar proof does not verify");
+
+  return admit(ctx, conv, { gateType: "anon_aadhaar", nullifier: proof.nullifier, commitment, proof });
 }
 
 function mapUniqueViolation(e: unknown): unknown {

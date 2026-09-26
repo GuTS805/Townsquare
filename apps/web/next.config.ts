@@ -1,5 +1,10 @@
+import { createRequire } from "node:module";
 import path from "node:path";
 import type { NextConfig } from "next";
+
+const require = createRequire(import.meta.url);
+// snarkjs as Anon Aadhaar's CommonJS build resolves it (its Node build), swapped for the browser build.
+const snarkjsBrowser = path.join(path.dirname(createRequire(require.resolve("@anon-aadhaar/core")).resolve("snarkjs")), "browser.esm.js");
 
 const config: NextConfig = {
   transpilePackages: ["@townsquare/core", "@townsquare/verifier", "@townsquare/math"],
@@ -11,6 +16,8 @@ const config: NextConfig = {
       cfg.resolve.alias = {
         ...cfg.resolve.alias,
         "@semaphore-protocol/proof$": path.resolve("node_modules/@semaphore-protocol/proof/dist/index.browser.js"),
+        // Anon Aadhaar's CommonJS build requires snarkjs's Node build, which hangs in a web worker
+        snarkjs$: snarkjsBrowser,
       };
     }
     return cfg;

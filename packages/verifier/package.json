@@ -16,6 +16,8 @@
     "@semaphore-protocol/proof": "^4.14.3",
     "@townsquare/core": "workspace:*",
     "@townsquare/math": "workspace:*",
-    "viem": "^2.56.9"
+    "snarkjs": "0.7.5",
+    "viem": "^2.56.9",
+    "zod": "^4.6.5"
   }
 }

@@ -13,7 +13,9 @@ import {
   verifyCodeProof,
   verifyPayload,
 } from "@townsquare/core";
-import type { VoteRow } from "@townsquare/math";
+import type { MathResult, VoteRow } from "@townsquare/math";
+import { aadhaarPolicyFailure, aadhaarProofSchema, verifyAadhaarSnark } from "./aadhaar";
+import { synthesisSchema, validateSynthesis } from "./claims";
 import { numberToHex, type Hex } from "viem";
 import { computeResult } from "./results";
 import type { Bundle, ChainData, CheckId, CheckResult } from "./types";
@@ -57,7 +59,12 @@ async function timed(id: CheckId, name: string, fn: (r: Report) => Promise<strin
 function configOf(b: Bundle) {
   const first = b.events[0];
   if (!first || first.type !== "PHASE" || !first.body?.config) return null;
-  return first.body.config as { slug: string; minMembers: number; moderation: "pre" | "post"; gate: { type: string; codeRoot?: Hex } };
+  return first.body.config as {
+    slug: string;
+    minMembers: number;
+    moderation: "pre" | "post";
+    gate: { type: string; codeRoot?: Hex; nullifierSeed?: string; freshnessDays?: number; reveal?: string[] };
+  };
 }
 
 // A: every member onchain came through the gate exactly once, with public evidence.
@@ -80,9 +87,12 @@ export function checkMembership(b: Bundle, chain: ChainData | null) {
     if (!chain) r.warn("not anchored onchain, checked against the API's member list");
 
     const seenNullifiers = new Set<string>();
-    memberList.forEach((m, i) => {
+    for (const [i, m] of memberList.entries()) {
       const rec = m.gateNullifier ? byNullifier.get(m.gateNullifier) : b.gateRecords.find((g) => g.commitment === m.commitment);
-      if (!rec) return r.fail(`member #${i + 1} has no gate record`);
+      if (!rec) {
+        r.fail(`member #${i + 1} has no gate record`);
+        continue;
+      }
       if (rec.commitment !== m.commitment) r.fail(`member #${i + 1}: commitment differs from its gate record`);
       if (seenNullifiers.has(rec.nullifier)) r.fail(`member #${i + 1}: gate nullifier reused`);
       seenNullifiers.add(rec.nullifier);
@@ -96,9 +106,25 @@ export function checkMembership(b: Bundle, chain: ChainData | null) {
           r.fail(`member #${i + 1}: invite code is not in the committed code set`);
         }
       } else {
-        r.warn("Anon Aadhaar proofs are not re-verified in this build");
+        const parsed = aadhaarProofSchema.safeParse(rec.proof);
+        if (!parsed.success) {
+          r.fail(`member #${i + 1}: malformed Anon Aadhaar proof`);
+          continue;
+        }
+        const p = parsed.data;
+        if (p.nullifier !== rec.nullifier) r.fail(`member #${i + 1}: gate nullifier is not the proof's nullifier`);
+        const why = aadhaarPolicyFailure(p, {
+          mode: b.meta.aadhaarMode ?? "test",
+          nullifierSeed: config?.gate.nullifierSeed ?? "",
+          commitment: rec.commitment,
+          freshnessDays: config?.gate.freshnessDays ?? 30,
+          reveal: config?.gate.reveal ?? [],
+          at: rec.t ? Math.floor(new Date(rec.t).getTime() / 1000) + 60 : Math.floor(Date.now() / 1000),
+        });
+        if (why) r.fail(`member #${i + 1}: ${why}`);
+        if (!(await verifyAadhaarSnark(p))) r.fail(`member #${i + 1}: Anon Aadhaar proof does not verify`);
       }
-    });
+    }
 
     // The API's member list must be exactly the onchain order, with correct roots.
     const group = new Group();
@@ -290,6 +316,28 @@ export function checkResults(b: Bundle, chain: ChainData | null) {
   });
 }
 
+// F: every published AI claim cites approved statements whose numbers meet the claim's rule.
+export function checkClaims(b: Bundle) {
+  return timed("F", "AI claims", async (r) => {
+    const raw = b.result?.synthesis;
+    if (!b.result || !raw) {
+      r.warn("no AI summary published");
+      return "nothing to check";
+    }
+    const parsed = synthesisSchema.safeParse(raw);
+    if (!parsed.success) {
+      r.fail("published summary does not match the summary schema");
+      return "malformed summary";
+    }
+    const { statementIds } = inputsFromLog(b, b.result.at_seq);
+    const { dropped } = validateSynthesis(parsed.data, b.result.math as MathResult, statementIds);
+    for (const d of dropped) r.fail(`${d.kind} "${d.text.slice(0, 60)}": ${d.reason}`);
+    const s = parsed.data;
+    const n = s.themes.length + s.commonGround.length + s.tensions.length;
+    return `${n} cited claims${b.result.model ? ` from ${b.result.model}` : ""}, each backed by its statements`;
+  });
+}
+
 export async function verifyAll(b: Bundle, chain: ChainData | null): Promise<CheckResult[]> {
   return [
     await checkMembership(b, chain),
@@ -297,5 +345,6 @@ export async function verifyAll(b: Bundle, chain: ChainData | null): Promise<Che
     await checkActions(b),
     await checkLog(b, chain),
     await checkResults(b, chain),
+    await checkClaims(b),
   ];
 }

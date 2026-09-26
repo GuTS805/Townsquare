@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@anon-aadhaar/core": "2.4.3",
     "@semaphore-protocol/group": "^4.14.3",
     "@semaphore-protocol/identity": "^4.14.3",
     "@semaphore-protocol/proof": "^4.14.3",
@@ -18,6 +19,7 @@
     "@townsquare/core": "workspace:*",
     "@townsquare/verifier": "workspace:*",
     "idb": "^8.0.3",
+    "jsqr": "^1.4.0",
     "next": "15",
     "qrcode.react": "^4.2.0",
     "react": "19",

@@ -30,13 +30,12 @@ export async function createConversation(ctx: Ctx, input: CreateConversationInpu
   const codeHashes = inviteCodes.map((c) => inviteCodeHash(slug, c));
   const root = codeHashes.length > 0 ? computeCodeRoot(codeHashes) : null;
 
-  const config = publicConfig(slug, input, root);
+  const seed = input.gate.type === "anon_aadhaar" ? aadhaarNullifierSeed(ctx.env.APP_NULLIFIER_SEED, slug).toString() : null;
+  const config = publicConfig(slug, input, root, seed);
   const configHash = hashJson(config);
 
   // Onchain first: if the chain rejects it, nothing is written locally.
   const chain = await ctx.relayer.createConversation(configHash, GATE_ENUM[input.gate.type], root ?? zeroHash);
-
-  const seed = input.gate.type === "anon_aadhaar" ? aadhaarNullifierSeed(ctx.env.APP_NULLIFIER_SEED, slug).toString() : null;
 
   await ctx.sql.begin(async (tx) => {
     const [conv] = await tx<{ id: string }[]>`

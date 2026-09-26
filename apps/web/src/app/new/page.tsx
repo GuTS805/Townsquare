@@ -24,6 +24,7 @@ export default function NewConversation() {
   const [seeds, setSeeds] = useState<string[]>(["", "", "", "", ""]);
   const [gate, setGate] = useState<"invite_code" | "anon_aadhaar">("invite_code");
   const [codeCount, setCodeCount] = useState(60);
+  const [over18, setOver18] = useState(true);
   const [minMembers, setMinMembers] = useState(10);
   const [moderation, setModeration] = useState<"pre" | "post">("post");
   const [busy, setBusy] = useState(false);
@@ -43,7 +44,7 @@ export default function NewConversation() {
         question,
         context,
         seedStatements: cleanSeeds,
-        gate: gate === "invite_code" ? { type: gate, codeCount } : { type: gate },
+        gate: gate === "invite_code" ? { type: gate, codeCount } : { type: gate, reveal: over18 ? ["ageAbove18"] : [] },
         minMembers,
         moderation,
       };
@@ -127,11 +128,19 @@ export default function NewConversation() {
                 active={gate === "anon_aadhaar"}
                 onClick={() => setGate("anon_aadhaar")}
                 title="Anon Aadhaar"
-                body="Participants prove they hold an Aadhaar with a zero-knowledge proof. Reveals nothing about them."
-                note="Coming next"
-                disabled
+                body="Participants prove they hold an Aadhaar with a zero-knowledge proof made on their phone. One Aadhaar, one voice."
+                note="Test mode"
               />
             </div>
+            {gate === "anon_aadhaar" && (
+              <label className="flex items-start gap-3 rounded-xl border border-line p-4 text-sm">
+                <input type="checkbox" className="mt-0.5" checked={over18} onChange={(e) => setOver18(e.target.checked)} />
+                <span>
+                  Require age above 18
+                  <span className="block text-xs text-muted">The proof reveals only a yes/no for this. Nothing else about the person is shared.</span>
+                </span>
+              </label>
+            )}
             {gate === "invite_code" && (
               <div>
                 <label className="label" htmlFor="f-codes">How many codes</label>

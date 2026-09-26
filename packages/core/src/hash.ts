@@ -1,4 +1,4 @@
-import { concat, keccak256, toBytes, type Hex } from "viem";
+import { concat, keccak256, numberToHex, toBytes, type Hex } from "viem";
 import { canonicalBytes } from "./jcs";
 
 export const ZERO_HASH: Hex = `0x${"00".repeat(32)}`;
@@ -36,6 +36,12 @@ export function normalizeCode(code: string): string {
 export function aadhaarNullifierSeed(appSeed: string, slug: string): bigint {
   const h = keccak256(toBytes(`${appSeed}:${slug}`));
   return BigInt(h.slice(0, 2 + 20));
+}
+
+// Anon Aadhaar binds its proof to a signal with keccak256(signal as uint256) >> 3.
+// Townsquare's signal is the identity commitment, so a stolen proof can't register anyone else.
+export function aadhaarSignalHash(signal: bigint | string): string {
+  return (BigInt(keccak256(numberToHex(BigInt(signal), { size: 32 }))) >> 3n).toString();
 }
 
 // Semaphore join proof inputs. scope gives one pid per identity per conversation;

@@ -31,7 +31,7 @@ export interface PublicConversation {
   question: string;
   context: string;
   phase: "draft" | "open" | "closed" | "sealed";
-  gate: { type: "invite_code" | "anon_aadhaar"; codeRoot: string | null };
+  gate: { type: "invite_code" | "anon_aadhaar"; codeRoot: string | null; nullifierSeed: string | null; freshnessDays: number; reveal: string[] };
   minMembers: number;
   moderation: "pre" | "post";
   configHash: string;
@@ -46,6 +46,7 @@ export interface Meta {
   hubAddress: string | null;
   onchain: boolean;
   logPublicKey: string;
+  aadhaarMode: "test" | "production";
 }
 
 // Explorer links; Base Sepolia by default.

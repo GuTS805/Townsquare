@@ -37,14 +37,14 @@ export const createConversationSchema = z.object({
 export type CreateConversationInput = z.infer<typeof createConversationSchema>;
 
 // What gets committed onchain as configHash. Only public, fixed rules go in here.
-export function publicConfig(slug: string, input: CreateConversationInput, codeRoot: string | null) {
+export function publicConfig(slug: string, input: CreateConversationInput, codeRoot: string | null, nullifierSeed: string | null = null) {
   return {
     v: 1,
     slug,
     title: input.title,
     question: input.question,
     context: input.context,
-    gate: input.gate.type === "invite_code" ? { type: "invite_code", codeRoot } : { ...input.gate },
+    gate: input.gate.type === "invite_code" ? { type: "invite_code", codeRoot } : { ...input.gate, nullifierSeed },
     minMembers: input.minMembers,
     moderation: input.moderation,
   };
