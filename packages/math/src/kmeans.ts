@@ -1,0 +1,264 @@
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface KMeansResult {
+  assignments: number[];
+  centers: Point[];
+  inertia: number;
+}
+
+function dist2(a: Point, b: Point): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return dx * dx + dy * dy;
+}
+
+/** 加權 k-means（k-means++ 初始化、Lloyd 迭代、空群修補）。 */
+export function kmeans(
+  points: Point[],
+  weights: number[],
+  k: number,
+  rng: () => number,
+  restarts = 4,
+): KMeansResult {
+  let best: KMeansResult | null = null;
+  for (let r = 0; r < restarts; r++) {
+    const result = kmeansOnce(points, weights, k, rng);
+    if (!best || result.inertia < best.inertia) best = result;
+  }
+  return best!;
+}
+
+function kmeansOnce(points: Point[], weights: number[], k: number, rng: () => number): KMeansResult {
+  const n = points.length;
+  const centers: Point[] = [];
+
+  // k-means++ 初始化（依權重）
+  const first = weightedPick(weights, rng);
+  centers.push({ ...points[first]! });
+  while (centers.length < k) {
+    const d2 = points.map((p, i) => {
+      let min = Infinity;
+      for (const c of centers) min = Math.min(min, dist2(p, c));
+      return min * weights[i]!;
+    });
+    const total = d2.reduce((a, b) => a + b, 0);
+    if (total < 1e-12) {
+      // 所有點都與現有中心重合，隨便補
+      centers.push({ ...points[Math.floor(rng() * n)]! });
+      continue;
+    }
+    centers.push({ ...points[weightedPick(d2, rng)]! });
+  }
+
+  const assignments = new Array<number>(n).fill(0);
+  for (let iter = 0; iter < 100; iter++) {
+    let changed = false;
+    for (let i = 0; i < n; i++) {
+      let bestC = 0;
+      let bestD = Infinity;
+      for (let c = 0; c < k; c++) {
+        const d = dist2(points[i]!, centers[c]!);
+        if (d < bestD) {
+          bestD = d;
+          bestC = c;
+        }
+      }
+      if (assignments[i] !== bestC) {
+        assignments[i] = bestC;
+        changed = true;
+      }
+    }
+
+    const sums = Array.from({ length: k }, () => ({ x: 0, y: 0, w: 0 }));
+    for (let i = 0; i < n; i++) {
+      const s = sums[assignments[i]!]!;
+      s.x += points[i]!.x * weights[i]!;
+      s.y += points[i]!.y * weights[i]!;
+      s.w += weights[i]!;
+    }
+    for (let c = 0; c < k; c++) {
+      const s = sums[c]!;
+      if (s.w > 0) {
+        centers[c] = { x: s.x / s.w, y: s.y / s.w };
+      } else {
+        // 空群：把離自己中心最遠的點搬過來
+        let farI = 0;
+        let farD = -1;
+        for (let i = 0; i < n; i++) {
+          const d = dist2(points[i]!, centers[assignments[i]!]!);
+          if (d > farD) {
+            farD = d;
+            farI = i;
+          }
+        }
+        centers[c] = { ...points[farI]! };
+        assignments[farI] = c;
+        changed = true;
+      }
+    }
+    if (!changed && iter > 0) break;
+  }
+
+  let inertia = 0;
+  for (let i = 0; i < n; i++) inertia += dist2(points[i]!, centers[assignments[i]!]!) * weights[i]!;
+  return { assignments, centers, inertia };
+}
+
+function weightedPick(weights: number[], rng: () => number): number {
+  const total = weights.reduce((a, b) => a + b, 0);
+  if (total <= 0) return Math.floor(rng() * weights.length);
+  let t = rng() * total;
+  for (let i = 0; i < weights.length; i++) {
+    t -= weights[i]!;
+    if (t <= 0) return i;
+  }
+  return weights.length - 1;
+}
+
+/**
+ * 加權平均 silhouette 係數。權重視為「重複次數」（base cluster 的大小）：
+ * a(i) 把同群其他 w−1 份自身複本視為距離 0，b(i) 取其他群的加權平均距離。
+ * 不加權時傳全 1 即為標準 silhouette。
+ */
+export function silhouette(
+  points: Point[],
+  assignments: number[],
+  k: number,
+  weights?: number[],
+): number {
+  const n = points.length;
+  if (n < 2 || k < 2) return 0;
+  const w = weights ?? new Array<number>(n).fill(1);
+  const clusterIdx: number[][] = Array.from({ length: k }, () => []);
+  const clusterWeight = new Array<number>(k).fill(0);
+  for (let i = 0; i < n; i++) {
+    clusterIdx[assignments[i]!]!.push(i);
+    clusterWeight[assignments[i]!]! += w[i]!;
+  }
+
+  let sum = 0;
+  let totalWeight = 0;
+  for (let i = 0; i < n; i++) {
+    const ownWeight = clusterWeight[assignments[i]!]!;
+    if (ownWeight <= 1) continue;
+    let a = 0;
+    for (const j of clusterIdx[assignments[i]!]!) {
+      if (j !== i) a += w[j]! * Math.sqrt(dist2(points[i]!, points[j]!));
+    }
+    a /= ownWeight - 1;
+    let b = Infinity;
+    for (let c = 0; c < k; c++) {
+      if (c === assignments[i] || clusterWeight[c]! === 0) continue;
+      let d = 0;
+      for (const j of clusterIdx[c]!) d += w[j]! * Math.sqrt(dist2(points[i]!, points[j]!));
+      b = Math.min(b, d / clusterWeight[c]!);
+    }
+    if (!isFinite(b)) continue;
+    const denom = Math.max(a, b);
+    sum += w[i]! * (denom > 0 ? (b - a) / denom : 0);
+    totalWeight += w[i]!;
+  }
+  return totalWeight > 0 ? sum / totalWeight : 0;
+}
+
+export interface GroupingResult {
+  k: number;
+  assignments: number[];
+  centers: Point[];
+  silhouette: number | null;
+}
+
+// k-smoothing（官方 polis 行為）：k 只有在新的 silhouette 明顯更好時才改變，
+// 避免每次重算群數跳動。
+export const K_SMOOTHING_BUFFER = 0.02;
+
+/** 從各 k 的 silhouette 分數中選 k：預設取最高分；前一次的 k 在差距
+ * 未超過 buffer 時優先保留。 */
+export function selectK(
+  scores: { k: number; sil: number }[],
+  previousK: number | null,
+): number {
+  let best = scores[0]!;
+  for (const s of scores) if (s.sil > best.sil) best = s;
+  if (previousK !== null) {
+    const prev = scores.find((s) => s.k === previousK);
+    if (prev && best.sil - prev.sil <= K_SMOOTHING_BUFFER) return prev.k;
+  }
+  return best.k;
+}
+
+/**
+ * 官方 polis 的兩段式分群：參與者超過 100 人時先做 k=100 的 base
+ * clustering，再對 base center（以群大小加權）做 2..5 群的分群，
+ * 以 silhouette 選 k。100 人以下直接對參與者分群。
+ * （偏差：官方對 base center 算 silhouette 時的加權細節未公開，
+ * 這裡用未加權 silhouette。）
+ */
+export function chooseGroups(
+  points: Point[],
+  rng: () => number,
+  previousK: number | null = null,
+): GroupingResult {
+  const n = points.length;
+  if (n === 0) return { k: 0, assignments: [], centers: [], silhouette: null };
+
+  const distinct = new Set(points.map((p) => `${p.x.toFixed(9)},${p.y.toFixed(9)}`)).size;
+  if (n < 4 || distinct < 2) {
+    return {
+      k: 1,
+      assignments: new Array(n).fill(0),
+      centers: [centroid(points)],
+      silhouette: null,
+    };
+  }
+
+  let basePoints = points;
+  let baseWeights = new Array<number>(n).fill(1);
+  let baseAssignOfParticipant: number[] | null = null;
+  if (n > 100) {
+    const base = kmeans(points, baseWeights, 100, rng, 2);
+    baseAssignOfParticipant = base.assignments;
+    basePoints = base.centers;
+    baseWeights = new Array<number>(100).fill(0);
+    for (const a of base.assignments) baseWeights[a]! += 1;
+  }
+
+  const kMax = Math.min(5, distinct, basePoints.length - 1);
+  const candidates: { k: number; result: KMeansResult; sil: number }[] = [];
+  for (let k = 2; k <= kMax; k++) {
+    const result = kmeans(basePoints, baseWeights, k, rng);
+    candidates.push({ k, result, sil: silhouette(basePoints, result.assignments, k) });
+  }
+  if (candidates.length === 0) {
+    return {
+      k: 1,
+      assignments: new Array(n).fill(0),
+      centers: [centroid(points)],
+      silhouette: null,
+    };
+  }
+
+  const chosenK = selectK(candidates.map(({ k, sil }) => ({ k, sil })), previousK);
+  const best = candidates.find((c) => c.k === chosenK)!;
+
+  let assignments: number[];
+  if (baseAssignOfParticipant) {
+    assignments = baseAssignOfParticipant.map((b) => best.result.assignments[b]!);
+  } else {
+    assignments = best.result.assignments;
+  }
+  return { k: best.k, assignments, centers: best.result.centers, silhouette: best.sil };
+}
+
+function centroid(points: Point[]): Point {
+  let x = 0;
+  let y = 0;
+  for (const p of points) {
+    x += p.x;
+    y += p.y;
+  }
+  return { x: x / points.length, y: y / points.length };
+}
