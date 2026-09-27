@@ -20,6 +20,11 @@ contract MockSemaphore is ISemaphore {
         members[groupId].push(commitment);
     }
 
+    function addMembers(uint256 groupId, uint256[] calldata commitments) external {
+        require(admins[groupId] == msg.sender, "not admin");
+        for (uint256 i; i < commitments.length; ++i) members[groupId].push(commitments[i]);
+    }
+
     function size(uint256 groupId) external view returns (uint256) {
         return members[groupId].length;
     }
@@ -106,6 +111,74 @@ contract TownsquareHubTest is Test {
         hub.addMember(b, 111, 7, bytes32(0));
         vm.stopPrank();
         assertTrue(hub.gateNullifierUsed(b, 7));
+    }
+
+    function _batch(uint256 a, uint256 b)
+        internal
+        pure
+        returns (uint256[] memory commitments, uint256[] memory nullifiers, bytes32[] memory proofs)
+    {
+        commitments = new uint256[](2);
+        nullifiers = new uint256[](2);
+        proofs = new bytes32[](2);
+        (commitments[0], commitments[1]) = (111, 222);
+        (nullifiers[0], nullifiers[1]) = (a, b);
+        (proofs[0], proofs[1]) = (keccak256("p1"), keccak256("p2"));
+    }
+
+    function test_addMembers_addsAllInOrder() public {
+        uint256 id = _create();
+        (uint256[] memory c, uint256[] memory n, bytes32[] memory p) = _batch(7, 8);
+        vm.expectEmit(true, false, false, true);
+        emit MemberAdded(id, 111, 7, keccak256("p1"));
+        vm.expectEmit(true, false, false, true);
+        emit MemberAdded(id, 222, 8, keccak256("p2"));
+        vm.prank(relayer);
+        hub.addMembers(id, c, n, p);
+
+        (uint256 groupId,,,,,,,,) = hub.conversations(id);
+        assertEq(semaphore.size(groupId), 2);
+        assertEq(semaphore.members(groupId, 0), 111);
+        assertEq(semaphore.members(groupId, 1), 222);
+        assertTrue(hub.gateNullifierUsed(id, 7) && hub.gateNullifierUsed(id, 8));
+    }
+
+    function test_addMembers_rejectsReusedNullifier() public {
+        uint256 id = _create();
+        vm.startPrank(relayer);
+        hub.addMember(id, 99, 8, bytes32(0));
+        (uint256[] memory c, uint256[] memory n, bytes32[] memory p) = _batch(7, 8);
+        vm.expectRevert(TownsquareHub.NullifierUsed.selector);
+        hub.addMembers(id, c, n, p);
+        // the whole batch reverts, so 7 is still free
+        assertFalse(hub.gateNullifierUsed(id, 7));
+        vm.stopPrank();
+    }
+
+    function test_addMembers_rejectsDuplicateInsideBatch() public {
+        uint256 id = _create();
+        (uint256[] memory c, uint256[] memory n, bytes32[] memory p) = _batch(7, 7);
+        vm.prank(relayer);
+        vm.expectRevert(TownsquareHub.NullifierUsed.selector);
+        hub.addMembers(id, c, n, p);
+    }
+
+    function test_addMembers_checksShapeAndAccess() public {
+        uint256 id = _create();
+        (uint256[] memory c, uint256[] memory n, bytes32[] memory p) = _batch(7, 8);
+        vm.prank(stranger);
+        vm.expectRevert(TownsquareHub.NotRelayer.selector);
+        hub.addMembers(id, c, n, p);
+
+        vm.startPrank(relayer);
+        vm.expectRevert(TownsquareHub.EmptyBatch.selector);
+        hub.addMembers(id, new uint256[](0), new uint256[](0), new bytes32[](0));
+        vm.expectRevert(TownsquareHub.LengthMismatch.selector);
+        hub.addMembers(id, c, new uint256[](1), p);
+        hub.close(id, bytes32(0));
+        vm.expectRevert(TownsquareHub.ConversationClosed.selector);
+        hub.addMembers(id, c, n, p);
+        vm.stopPrank();
     }
 
     function test_addMember_unknownConversation() public {

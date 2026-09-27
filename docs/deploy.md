@@ -21,7 +21,9 @@ send the test ETH on to the relayer. After deploying, send one real transaction 
 used in the server log (`"msg":"relayed"` lines include `gas`) so you know how many claims the pilot needs.
 Local runs against a mock Semaphore used `createConversation` ~178k gas, `addMember` ~87k and `anchor` ~36k.
 The real Semaphore contract updates an onchain Merkle tree, so `createConversation` and `addMember` will cost
-more there; `anchor` doesn't touch Semaphore and stays the same.
+more there; `anchor` doesn't touch Semaphore and stays the same. On the live test, 12 registrations plus
+4 anchors cost about 0.000016 ETH in total. People who register while a transaction is in flight share the
+next `addMembers` call, so a full room costs less per person than one-by-one sign-ups.
 
 ## 3. Contract
 

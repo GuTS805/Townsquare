@@ -288,4 +288,38 @@ describe.skipIf(!DB)(`server flow (${process.env.TEST_HUB_ADDRESS ? "onchain" : 
     await ctx.sql`alter table events enable trigger events_no_update`;
     expect(statuses(await verifyAll(await fetchBundle(), chainData))).toEqual(statuses(honest));
   }, 120_000);
+
+  it("registers a whole room at once in a few transactions, in chain order", async () => {
+    const created = await call("POST", "/conversations", {
+      title: "Canteen",
+      question: "What should the canteen serve during the fest?",
+      seedStatements: ["More veg thalis during the fest.", "Keep prices the same all week.", "Open a late-night snack counter."],
+      gate: { type: "invite_code", codeCount: 14 },
+      minMembers: 2,
+    });
+    const { slug, adminToken, inviteCodes } = created.body as { slug: string; adminToken: string; inviteCodes: string[] };
+    await call("PATCH", `/conversations/${slug}`, { phase: "open" }, adminToken);
+
+    // 12 people press "Join" together, and two of them race for the same code
+    const room = await Promise.all([
+      ...inviteCodes.slice(0, 12).map((code) => call("POST", `/c/${slug}/gate/code`, { code, commitment: new Identity().commitment.toString() })),
+      call("POST", `/c/${slug}/gate/code`, { code: inviteCodes[0], commitment: new Identity().commitment.toString() }),
+    ]);
+    const ok = room.filter((r) => r.status === 201);
+    expect(ok).toHaveLength(12);
+    expect(room.filter((r) => r.body.code === "CODE_USED")).toHaveLength(1);
+    expect(ok.map((r) => r.body.memberIndex).sort((a, b) => a - b)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1));
+
+    const bundle = (await call("GET", `/c/${slug}/bundle`)).body as Bundle;
+    if (ctx.relayer.enabled) {
+      // people who arrive while a transaction is in flight share the next one (Anvil mines
+      // instantly, so batches here are smaller than on Base with its 2 s blocks)
+      expect(new Set(ok.map((r) => r.body.txHash)).size).toBeLessThan(12);
+      const chainData = await fetchChainData(ctx.env.RPC_URL, ctx.relayer.hubAddress!, bundle.conversation.chain!.convId);
+      const local = (await call("GET", `/c/${slug}/members`)).body.commitments as string[];
+      expect(chainData.members.map((m) => m.commitment)).toEqual(local);
+      const checks = await verifyAll(bundle, chainData);
+      expect(checks.find((c) => c.id === "A")!.status).toBe("pass");
+    }
+  }, 120_000);
 });

@@ -46,6 +46,7 @@ contract TownsquareHub {
     error NonContiguousBatch();
     error EmptyBatch();
     error ZeroAddress();
+    error LengthMismatch();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -101,6 +102,26 @@ contract TownsquareHub {
         gateNullifierUsed[id][gateNullifier] = true;
         semaphore.addMember(conversations[id].groupId, commitment);
         emit MemberAdded(id, commitment, gateNullifier, proofHash);
+    }
+
+    /// Same as addMember for many people in one transaction, so a full room can register
+    /// without queueing one block per person. Members join the group in array order.
+    function addMembers(
+        uint256 id,
+        uint256[] calldata commitments,
+        uint256[] calldata gateNullifiers,
+        bytes32[] calldata proofHashes
+    ) external onlyRelayer open(id) {
+        uint256 n = commitments.length;
+        if (n == 0) revert EmptyBatch();
+        if (gateNullifiers.length != n || proofHashes.length != n) revert LengthMismatch();
+        mapping(uint256 => bool) storage used = gateNullifierUsed[id];
+        for (uint256 i; i < n; ++i) {
+            if (used[gateNullifiers[i]]) revert NullifierUsed();
+            used[gateNullifiers[i]] = true;
+            emit MemberAdded(id, commitments[i], gateNullifiers[i], proofHashes[i]);
+        }
+        semaphore.addMembers(conversations[id].groupId, commitments);
     }
 
     function anchor(uint256 id, bytes32 root, uint64 fromSeq, uint64 toSeq, bytes32 head)

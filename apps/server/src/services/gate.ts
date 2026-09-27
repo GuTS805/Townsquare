@@ -10,13 +10,10 @@ export interface MemberAddedResult {
   txHash: Hex | null;
 }
 
-// Serialize member additions per process so leaf order matches the chain.
-let memberChain: Promise<unknown> = Promise.resolve();
-function serial<T>(fn: () => Promise<T>): Promise<T> {
-  const next = memberChain.then(fn, fn);
-  memberChain = next.catch(() => undefined);
-  return next;
-}
+// Members must be recorded locally in the order the chain adds them, or leaf indexes and
+// roots drift from the Semaphore contract. relayer.addMember queues synchronously, and the
+// local record is appended to this chain in the same tick, so both orders are call order.
+let recordChain: Promise<unknown> = Promise.resolve();
 
 function requireOpenGate(conv: ConversationRow, type: ConversationRow["gate_type"]) {
   if (conv.gate_type !== type) throw new TsError("BAD_REQUEST", `this conversation does not use ${type === "invite_code" ? "invite codes" : "Anon Aadhaar"}`);
@@ -33,47 +30,50 @@ interface Admission {
 
 // Record the gate evidence, add the commitment onchain, then mirror the member locally.
 // If the chain rejects it, the local record is rolled back so the credential can be retried.
+// People registering at the same time share one addMembers transaction.
 async function admit(ctx: Ctx, conv: ConversationRow, a: Admission): Promise<MemberAddedResult> {
   const proofHash = hashJson(a.proof);
-  return serial(async () => {
-    try {
-      await ctx.sql.begin(async (tx) => {
-        if (a.codeHash) {
-          const used = await tx`
-            update invite_codes set used_at = date_trunc('minute', now())
-            where conv_id = ${conv.id} and code_hash = ${a.codeHash} and used_at is null
-            returning code_hash`;
-          if (used.length === 0) throw new TsError("CODE_USED", "invite code already used");
-        }
-        await tx`
-          insert into gate_records (conv_id, gate_type, nullifier, commitment, proof, proof_hash)
-          values (${conv.id}, ${a.gateType}, ${a.nullifier}, ${a.commitment}, ${tx.json(a.proof as never)}, ${proofHash})`;
-      });
-    } catch (e) {
-      throw mapUniqueViolation(e);
-    }
-
-    let txHash: Hex | null = null;
-    let blockNumber = 0;
-    if (conv.chain_conv_id) {
-      try {
-        const added = await ctx.relayer.addMember(conv.chain_conv_id, a.commitment, a.nullifier, proofHash);
-        txHash = added?.txHash ?? null;
-        blockNumber = added?.blockNumber ?? 0;
-      } catch (e) {
-        await ctx.sql.begin(async (tx) => {
-          await tx`delete from gate_records where conv_id = ${conv.id} and nullifier = ${a.nullifier}`;
-          if (a.codeHash) await tx`update invite_codes set used_at = null where conv_id = ${conv.id} and code_hash = ${a.codeHash}`;
-        });
-        ctx.log.error({ err: e, slug: conv.slug }, "addMember failed");
-        throw new TsError("CHAIN_ERROR", "could not add member onchain, try again");
+  try {
+    await ctx.sql.begin(async (tx) => {
+      if (a.codeHash) {
+        const used = await tx`
+          update invite_codes set used_at = date_trunc('minute', now())
+          where conv_id = ${conv.id} and code_hash = ${a.codeHash} and used_at is null
+          returning code_hash`;
+        if (used.length === 0) throw new TsError("CODE_USED", "invite code already used");
       }
-      await ctx.sql`update gate_records set tx_hash = ${txHash} where conv_id = ${conv.id} and nullifier = ${a.nullifier}`;
-    }
+      await tx`
+        insert into gate_records (conv_id, gate_type, nullifier, commitment, proof, proof_hash)
+        values (${conv.id}, ${a.gateType}, ${a.nullifier}, ${a.commitment}, ${tx.json(a.proof as never)}, ${proofHash})`;
+    });
+  } catch (e) {
+    throw mapUniqueViolation(e);
+  }
 
-    const m = await recordMember(ctx, conv.id, a.commitment, blockNumber);
-    return { memberIndex: m.leafIndex + 1, txHash };
+  // Same tick from here to the recordChain append: that is what keeps the two orders equal.
+  const onchain = conv.chain_conv_id
+    ? ctx.relayer.addMember(conv.chain_conv_id, a.commitment, a.nullifier, proofHash)
+    : Promise.resolve(null);
+  onchain.catch(() => undefined); // handled below; avoids an unhandled rejection while queued
+
+  const result = recordChain.then(async () => {
+    let added: Awaited<typeof onchain>;
+    try {
+      added = await onchain;
+    } catch (e) {
+      await ctx.sql.begin(async (tx) => {
+        await tx`delete from gate_records where conv_id = ${conv.id} and nullifier = ${a.nullifier}`;
+        if (a.codeHash) await tx`update invite_codes set used_at = null where conv_id = ${conv.id} and code_hash = ${a.codeHash}`;
+      });
+      ctx.log.error({ err: e, slug: conv.slug }, "addMember failed");
+      throw new TsError("CHAIN_ERROR", "could not add member onchain, try again");
+    }
+    if (added) await ctx.sql`update gate_records set tx_hash = ${added.txHash} where conv_id = ${conv.id} and nullifier = ${a.nullifier}`;
+    const m = await recordMember(ctx, conv.id, a.commitment, added?.blockNumber ?? 0);
+    return { memberIndex: m.leafIndex + 1, txHash: added?.txHash ?? null };
   });
+  recordChain = result.catch(() => undefined);
+  return result;
 }
 
 export async function passCodeGate(ctx: Ctx, conv: ConversationRow, code: string, commitment: string): Promise<MemberAddedResult> {

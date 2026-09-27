@@ -7,4 +7,6 @@ interface ISemaphore {
     function createGroup() external returns (uint256);
 
     function addMember(uint256 groupId, uint256 identityCommitment) external;
+
+    function addMembers(uint256 groupId, uint256[] calldata identityCommitments) external;
 }

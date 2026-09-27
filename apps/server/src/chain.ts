@@ -16,6 +16,7 @@ import type { Logger } from "./logger";
 export const hubAbi = parseAbi([
   "function createConversation(bytes32 configHash, uint8 gate, bytes32 codeRoot) returns (uint256)",
   "function addMember(uint256 id, uint256 commitment, uint256 gateNullifier, bytes32 proofHash)",
+  "function addMembers(uint256 id, uint256[] commitments, uint256[] gateNullifiers, bytes32[] proofHashes)",
   "function anchor(uint256 id, bytes32 root, uint64 fromSeq, uint64 toSeq, bytes32 head)",
   "function close(uint256 id, bytes32 finalResultHash)",
   "function gateNullifierUsed(uint256 id, uint256 nullifier) view returns (bool)",
@@ -28,6 +29,17 @@ export const hubAbi = parseAbi([
 
 export const GATE_ENUM = { invite_code: 0, anon_aadhaar: 1 } as const;
 
+// Largest addMembers batch; keeps one transaction well under the block gas limit.
+const MAX_MEMBER_BATCH = 50;
+
+interface PendingMember {
+  commitment: bigint;
+  gateNullifier: bigint;
+  proofHash: Hex;
+  resolve(v: { txHash: Hex; blockNumber: number }): void;
+  reject(e: unknown): void;
+}
+
 export interface Relayer {
   enabled: boolean;
   address: Hex | null;
@@ -35,6 +47,8 @@ export interface Relayer {
   chainId: number;
   pending(): number;
   createConversation(configHash: Hex, gate: 0 | 1, codeRoot: Hex): Promise<{ txHash: Hex; convId: string; groupId: string } | null>;
+  // Queues synchronously, so onchain order is call order. Calls that arrive while a
+  // transaction is in flight go out together in the next addMembers batch.
   addMember(convId: string, commitment: string, gateNullifier: string, proofHash: Hex): Promise<{ txHash: Hex; blockNumber: number } | null>;
   anchor(convId: string, root: Hex, fromSeq: number, toSeq: number, head: Hex): Promise<Hex | null>;
   // Chain view used to recover batches whose outcome was lost (crash between send and record).
@@ -74,21 +88,56 @@ export function createRelayer(env: Env, log: Logger): Relayer {
   const publicClient = createPublicClient({ chain, transport: http(env.RPC_URL) });
   const wallet = createWalletClient({ account, chain, transport: http(env.RPC_URL) });
 
-  async function send(fn: "createConversation" | "addMember" | "anchor" | "close", args: readonly unknown[]) {
+  type HubWrite = "createConversation" | "addMember" | "addMembers" | "anchor" | "close";
+
+  // Sends and waits for the receipt. Only call from inside the queue.
+  async function sendNow(fn: HubWrite, args: readonly unknown[]) {
+    const hash = await wallet.writeContract({
+      address: hub,
+      abi: hubAbi,
+      functionName: fn,
+      args: args as never,
+      account,
+      chain,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new Error(`${fn} reverted in ${hash}`);
+    log.info({ fn, tx: hash, gas: receipt.gasUsed.toString() }, "relayed");
+    return receipt;
+  }
+
+  function send(fn: HubWrite, args: readonly unknown[]) {
+    return queue.add(() => sendNow(fn, args)) as Promise<Awaited<ReturnType<typeof sendNow>>>;
+  }
+
+  const pendingMembers = new Map<string, PendingMember[]>();
+
+  // Runs in the relayer queue, so it waits for any transaction in flight; everyone who
+  // registered meanwhile is sent in one addMembers call.
+  function flushMembers(convId: string): Promise<void> {
     return queue.add(async () => {
-      const hash = await wallet.writeContract({
-        address: hub,
-        abi: hubAbi,
-        functionName: fn,
-        args: args as never,
-        account,
-        chain,
-      });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      if (receipt.status !== "success") throw new Error(`${fn} reverted in ${hash}`);
-      log.info({ fn, tx: hash, gas: receipt.gasUsed.toString() }, "relayed");
-      return receipt;
-    }) as Promise<Awaited<ReturnType<typeof publicClient.waitForTransactionReceipt>>>;
+      const batch = (pendingMembers.get(convId) ?? []).splice(0, MAX_MEMBER_BATCH);
+      if (pendingMembers.get(convId)?.length) void flushMembers(convId);
+      else pendingMembers.delete(convId);
+      if (batch.length === 0) return;
+      try {
+        const r = await sendNow("addMembers", [BigInt(convId), batch.map((m) => m.commitment), batch.map((m) => m.gateNullifier), batch.map((m) => m.proofHash)]);
+        for (const m of batch) m.resolve({ txHash: r.transactionHash, blockNumber: Number(r.blockNumber) });
+        log.info({ convId, members: batch.length }, "members batched");
+      } catch (err) {
+        if (batch.length === 1) return batch[0]!.reject(err);
+        // One bad entry shouldn't sink the rest: retry one by one, in the same order.
+        log.warn({ err, convId, members: batch.length }, "member batch failed, retrying singly");
+        for (const m of batch) {
+          try {
+            const r = await sendNow("addMember", [BigInt(convId), m.commitment, m.gateNullifier, m.proofHash]);
+            m.resolve({ txHash: r.transactionHash, blockNumber: Number(r.blockNumber) });
+          } catch (e) {
+            m.reject(e);
+          }
+        }
+      }
+    });
   }
 
   return {
@@ -103,9 +152,13 @@ export function createRelayer(env: Env, log: Logger): Relayer {
       if (!created) throw new Error("Created event missing");
       return { txHash: receipt.transactionHash, convId: created.args.id.toString(), groupId: created.args.groupId.toString() };
     },
-    async addMember(convId, commitment, gateNullifier, proofHash) {
-      const r = await send("addMember", [BigInt(convId), BigInt(commitment), BigInt(gateNullifier), proofHash]);
-      return { txHash: r.transactionHash, blockNumber: Number(r.blockNumber) };
+    addMember(convId, commitment, gateNullifier, proofHash) {
+      return new Promise((resolve, reject) => {
+        const list = pendingMembers.get(convId) ?? [];
+        list.push({ commitment: BigInt(commitment), gateNullifier: BigInt(gateNullifier), proofHash, resolve, reject });
+        pendingMembers.set(convId, list);
+        if (list.length === 1) void flushMembers(convId);
+      });
     },
     async anchor(convId, root, fromSeq, toSeq, head) {
       const r = await send("anchor", [BigInt(convId), root, BigInt(fromSeq), BigInt(toSeq), head]);
