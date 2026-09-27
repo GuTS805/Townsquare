@@ -26,20 +26,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-dvh">
-        <header className="border-b border-line bg-white/80 backdrop-blur">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-            <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold text-deep">
+        <header className="site-header border-b border-line bg-white/80 backdrop-blur">
+          <div className="mx-auto flex min-h-[59px] max-w-[1380px] items-center justify-between gap-5 px-5 py-2 sm:px-6">
+            <Link href="/" className="flex shrink-0 items-center gap-2 font-display text-lg font-bold text-deep">
               <Logo />
               Townsquare
             </Link>
-            <nav className="flex gap-1 text-sm">
-              <Link href="/new" className="btn-ghost px-3 py-2">
-                Start a conversation
-              </Link>
+            <nav className="site-nav flex items-center gap-1 text-[13px] font-medium" aria-label="Main navigation">
+              <Link href="/" className="site-nav-home">Home</Link>
+              <Link href="/#how-it-works">How it works</Link>
+              <Link href="/#verification">Verify</Link>
+              <Link href="/#explore">Explore</Link>
             </nav>
+            <Link href="/new" className="site-header-action">Start a conversation <span aria-hidden="true">→</span></Link>
           </div>
         </header>
-        <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+        <main className="site-main mx-auto max-w-5xl px-4 py-8">{children}</main>
         <footer className="mx-auto max-w-5xl px-4 pb-10 pt-4 text-xs text-muted">
           Open source (MIT). Built on Semaphore, Anon Aadhaar and the Pocket Polis math.
         </footer>

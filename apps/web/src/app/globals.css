@@ -28,6 +28,46 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.site-nav a {
+  border-radius: 14px;
+  padding: 8px 17px;
+  transition: background .2s;
+}
+
+.site-nav a:hover,
+.site-nav-home {
+  background: #eaf3eb;
+}
+
+.site-header-action {
+  display: inline-flex;
+  min-height: 38px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  background: #042c25;
+  padding: 0 18px;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 3px 10px #04382b20;
+}
+
+.site-header-action:hover { background: #07533c; }
+.site-header-action span { font-size: 20px; line-height: 0; }
+.site-header:not(:has(+ .site-main .home-page)) .site-nav { display: none; }
+
+@media (max-width: 760px) {
+  .site-header > div { flex-wrap: wrap; }
+  .site-nav { order: 3; width: 100%; justify-content: center; overflow-x: auto; }
+  .site-nav a { padding: 6px 11px; white-space: nowrap; }
+}
+
+@media (max-width: 400px) {
+  .site-header-action { padding-inline: 10px; font-size: 10px; }
+}
+
 h1,
 h2,
 h3 {

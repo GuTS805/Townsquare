@@ -1,0 +1,119 @@
+.home-page {
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+  background: #fffefa;
+  color: #09201c;
+}
+
+.home-scene {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 670px;
+  background-image: linear-gradient(90deg, rgba(255, 254, 250, .24), transparent 52%), linear-gradient(180deg, transparent 75%, #fffefa 100%), url('/townsquare-forum-hero.png');
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+}
+
+.home-shell {
+  position: relative;
+  width: min(1340px, calc(100% - 48px));
+  margin: 0 auto;
+  padding-bottom: 42px;
+}
+
+.home-intro {
+  position: relative;
+  display: flex;
+  min-height: 480px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-top: 44px;
+}
+
+.home-intro-copy { max-width: 440px; }
+.home-eyebrow { color: #71817d; font-size: 11px; font-weight: 700; letter-spacing: .105em; text-transform: uppercase; }
+.home-intro h1 { margin-top: 11px; font-size: clamp(42px, 4vw, 60px); font-weight: 700; line-height: .99; letter-spacing: -.055em; }
+.home-intro h1 span { color: #198b5d; }
+.home-description { margin-top: 21px; max-width: 430px; font-size: 14px; line-height: 1.46; }
+.home-actions { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 20px; }
+.home-primary-action, .home-secondary-action, .home-explore { display: inline-flex; align-items: center; justify-content: center; gap: 14px; min-height: 48px; border-radius: 16px; padding: 0 22px; font-size: 13px; font-weight: 700; text-decoration: none; transition: transform .2s, box-shadow .2s, background .2s; }
+.home-primary-action:hover, .home-secondary-action:hover, .home-explore:hover { transform: translateY(-2px); }
+.home-primary-action { background: linear-gradient(120deg, #08714e, #005942); color: white; box-shadow: 0 8px 22px #00594221; }
+.home-primary-action:hover { background: #034b3b; box-shadow: 0 11px 28px #00594233; }
+.home-secondary-action { border: 1px solid #d9dfd9; background: #ffffffd9; color: #10211d; box-shadow: 0 5px 16px #09201c0d; }
+.home-secondary-action:hover { background: white; }
+.home-actions svg, .home-explore svg { width: 18px; height: 18px; }
+.home-secondary-action svg { width: 16px; height: 16px; color: #798781; }
+.home-trust { display: flex; align-items: center; gap: 29px; width: max-content; margin-top: 27px; font-size: 11px; color: #24403b; }
+.home-trust span { display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; }
+.home-trust svg { width: 20px; height: 20px; color: #062c27; }
+.home-scene-note { display: flex; flex-direction: column; gap: 3px; margin: 112px 0 0 auto; padding-right: 13px; font-size: 12px; color: #2d4641; }
+.home-scene-note strong { margin-top: 14px; font-weight: 500; color: #132a25; }
+.home-scene-note strong::after { display: block; width: 27px; height: 1px; margin-top: 13px; background: #668b7b; content: ""; }
+.home-vote-badges { position: absolute; inset: 0; pointer-events: none; }
+.home-vote-badge { position: absolute; display: flex; align-items: center; gap: 9px; min-height: 57px; border: 1px solid #ffffffc9; border-radius: 11px; background: #fffffff0; padding: 0 15px; box-shadow: 0 10px 30px #143d321c; color: #1a2522; font-size: 14px; font-weight: 700; }
+.home-vote-badge i { width: 20px; height: 20px; border-radius: 50%; }
+.home-vote-agree { top: 198px; left: 52%; transform: rotate(-4deg); }
+.home-vote-agree i { background: linear-gradient(140deg, #39c680, #078452); }
+.home-vote-disagree { top: 199px; left: 65%; transform: rotate(2deg); }
+.home-vote-disagree i { background: linear-gradient(140deg, #ff786b, #ed3e35); }
+.home-vote-pass { top: 207px; left: 80%; transform: rotate(-2deg); }
+.home-vote-pass i { background: linear-gradient(140deg, #c6cdca, #909c98); }
+
+.home-promises { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; scroll-margin-top: 80px; }
+.home-promise { min-height: 184px; padding: 13px 24px 17px; border: 1px solid #dce3de; border-radius: 16px; background: #ffffffeb; box-shadow: 0 9px 28px #17382c0c; backdrop-filter: blur(7px); }
+.home-promise-icon { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 12px; }
+.home-promise-icon svg { width: 26px; height: 26px; }
+.home-promise-person .home-promise-icon { background: #e0f2e2; color: #189752; }
+.home-promise-mask .home-promise-icon { background: #eeebff; color: #6656c8; }
+.home-promise-shield .home-promise-icon { background: #fff0e4; color: #f47629; }
+.home-promise h2 { margin-top: 7px; font-size: 16px; font-weight: 700; letter-spacing: -.035em; }
+.home-promise p { margin-top: 4px; max-width: 360px; color: #4f5a60; font-size: 13px; line-height: 1.36; }
+.home-fcc-note { display: flex; align-items: center; gap: 24px; min-height: 70px; margin-top: 9px; padding: 11px 24px; border: 1px solid #f3e6d0; border-radius: 15px; background: #fff6e8ec; }
+.home-quote-icon { display: grid; flex: 0 0 48px; height: 48px; place-items: center; border-radius: 12px; background: #ffebc9; color: #906916; font-family: Georgia, serif; font-size: 58px; line-height: 1; padding-top: 15px; }
+.home-fcc-note p { font-size: 13px; line-height: 1.45; }
+.home-steps { display: flex; align-items: center; gap: 26px; min-height: 122px; margin-top: 9px; padding: 20px 34px; border-radius: 16px; background: linear-gradient(95deg, #042824ed, #003a31e6), url('/townsquare-forum-hero.png') right 52% / cover; color: white; scroll-margin-top: 85px; }
+.home-step { display: flex; flex: 1 1 0; align-items: flex-start; gap: 13px; min-width: 0; }
+.home-step-number { display: grid; flex: 0 0 39px; height: 39px; place-items: center; border-radius: 50%; background: white; color: #09231f; font-size: 17px; font-weight: 700; box-shadow: 0 4px 0 #0d7f60; }
+.home-step h2 { padding-top: 4px; font-size: 13px; font-weight: 700; }
+.home-step p { margin-top: 5px; max-width: 190px; color: #c4d6d0; font-size: 11px; line-height: 1.45; }
+.home-explore { flex: 0 0 auto; min-height: 43px; padding: 0 17px; border-radius: 12px; background: #f8faf5; color: #09231f; font-size: 11px; }
+.home-explore:hover { background: white; }
+
+.site-main:has(.home-page) { max-width: none; padding: 0; }
+.site-header:has(+ .site-main .home-page) { position: relative; z-index: 2; background: #ffffffec; }
+
+@media (max-width: 1080px) {
+  .home-scene { background-position: 58% top; }
+  .home-scene-note { display: none; }
+  .home-vote-badges { display: none; }
+  .home-intro { min-height: 500px; }
+  .home-steps { flex-wrap: wrap; }
+  .home-step { flex-basis: 26%; }
+  .home-explore { margin-left: auto; }
+}
+
+@media (max-width: 720px) {
+  .home-shell { width: min(100% - 32px, 520px); }
+  .home-scene { height: 660px; background-image: linear-gradient(90deg, #fffefaed, #fffefa9c 75%), linear-gradient(180deg, transparent 65%, #fffefa 100%), url('/townsquare-forum-hero.png'); background-position: 61% top; }
+  .home-intro { min-height: 590px; padding-top: 38px; }
+  .home-intro-copy { max-width: 100%; }
+  .home-intro h1 { font-size: clamp(43px, 11vw, 58px); }
+  .home-description { max-width: 390px; }
+  .home-trust { display: grid; grid-template-columns: repeat(2, max-content); column-gap: 25px; row-gap: 14px; margin-top: 29px; }
+  .home-promises { grid-template-columns: 1fr; }
+  .home-promise { min-height: auto; }
+  .home-fcc-note { align-items: flex-start; padding: 16px; }
+  .home-steps { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 25px; }
+  .home-step p { max-width: none; }
+  .home-explore { width: fit-content; margin-left: 0; }
+}
+
+@media (max-width: 390px) {
+  .home-actions { gap: 9px; }
+  .home-primary-action, .home-secondary-action { padding-inline: 16px; }
+  .home-trust { column-gap: 15px; font-size: 10px; }
+}
