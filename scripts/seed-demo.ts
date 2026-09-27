@@ -57,10 +57,18 @@ async function main() {
   must(await api(`/conversations/${slug}`, { phase: "open" }, { method: "PATCH", token: adminToken }), "open");
 
   const people = Array.from({ length: PEOPLE }, (_, i) => ({ identity: new Identity(), camp: i % CAMPS.length }));
-  for (const [i, p] of people.entries()) {
-    must(await api(`/c/${slug}/gate/code`, { code: inviteCodes[i], commitment: p.identity.commitment.toString() }), `register #${i + 1}`);
-  }
-  console.log(`registered ${PEOPLE} members`);
+  // everyone registers at once, like a room scanning the code together
+  const tReg = Date.now();
+  const regs = await Promise.all(
+    people.map(async (p, i) =>
+      must(
+        await api<{ txHash: string | null }>(`/c/${slug}/gate/code`, { code: inviteCodes[i], commitment: p.identity.commitment.toString() }),
+        `register #${i + 1}`,
+      ),
+    ),
+  );
+  const txs = new Set(regs.map((r) => r.txHash)).size;
+  console.log(`registered ${PEOPLE} members in ${((Date.now() - tReg) / 1000).toFixed(1)}s (${txs} transaction${txs === 1 ? "" : "s"})`);
 
   const { commitments } = must(await api<{ commitments: string[] }>(`/c/${slug}/members`), "members");
   const group = new Group(commitments.map(BigInt));
