@@ -17,7 +17,7 @@ import {
 } from "@townsquare/core";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app";
 import { createRelayer } from "../src/chain";
 import type { Ctx } from "../src/context";
@@ -26,6 +26,7 @@ import { loadEnv } from "../src/env";
 import { createJobs } from "../src/jobs";
 import { createLogger } from "../src/logger";
 import { loadLogKey } from "../src/logkey";
+import { summarizePending, summaryWaitMs } from "../src/services/ai";
 import { anchorAll } from "../src/services/anchor";
 import { recomputeResults } from "../src/services/results";
 import { checkReceipt, fetchChainData, verifyAll, type Bundle } from "@townsquare/verifier";
@@ -322,4 +323,46 @@ describe.skipIf(!DB)(`server flow (${process.env.TEST_HUB_ADDRESS ? "onchain" : 
       expect(checks.find((c) => c.id === "A")!.status).toBe("pass");
     }
   }, 120_000);
+
+  it("sweeps up summaries lost to a restart, and retries a failed model call sooner", async () => {
+    // the sealed conversation from the first test already has a summary and a fresh throttle
+    const [row] = await ctx.sql<{ conv_id: string }[]>`select conv_id from results where model = 'fake-llm' order by id desc limit 1`;
+    const convId = row!.conv_id;
+    const newResult = async () => {
+      await ctx.sql`
+        insert into results (conv_id, at_seq, math, result_hash, params)
+        select conv_id, at_seq, math, result_hash, params from results where conv_id = ${convId} order by id desc limit 1`;
+    };
+    const latestHasSummary = async () =>
+      (await ctx.sql<{ s: boolean }[]>`select synthesis is not null as s from results where conv_id = ${convId} order by id desc limit 1`)[0]!.s;
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now");
+    try {
+      // a result appears but its timer died with the process: the sweep waits for the throttle...
+      await newResult();
+      await summarizePending(ctx);
+      expect(await latestHasSummary()).toBe(false);
+      // ...and fills it in once the throttle has passed
+      clock.mockReturnValue(now + 11 * 60_000);
+      await summarizePending(ctx);
+      expect(await latestHasSummary()).toBe(true);
+
+      // a failed model call is retried after 2 minutes, not 10
+      await newResult();
+      const complete = ctx.llm!.complete;
+      ctx.llm!.complete = async () => {
+        throw new Error("model unavailable");
+      };
+      clock.mockReturnValue(now + 22 * 60_000);
+      await summarizePending(ctx);
+      expect(await latestHasSummary()).toBe(false);
+      expect(summaryWaitMs(convId)).toBeLessThanOrEqual(2 * 60_000);
+      ctx.llm!.complete = complete;
+      clock.mockReturnValue(now + 24.5 * 60_000);
+      await summarizePending(ctx);
+      expect(await latestHasSummary()).toBe(true);
+    } finally {
+      clock.mockRestore();
+    }
+  });
 });

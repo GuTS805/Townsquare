@@ -1,7 +1,7 @@
 import PQueue from "p-queue";
 import type { Ctx } from "./context";
 import { anchorAll } from "./services/anchor";
-import { summarize, summaryWaitMs } from "./services/ai";
+import { summarize, summarizePending, summaryWaitMs } from "./services/ai";
 import { recomputeResults } from "./services/results";
 
 export interface Jobs {
@@ -20,6 +20,7 @@ export function createJobs(getCtx: () => Ctx): Jobs {
   const mathTimers = new Map<string, NodeJS.Timeout>();
   const summaryTimers = new Map<string, NodeJS.Timeout>();
   let anchorTimer: NodeJS.Timeout | null = null;
+  let summaryTimer: NodeJS.Timeout | null = null;
   let stopping = false;
 
   const safe = (name: string, fn: () => Promise<unknown>) => () =>
@@ -54,10 +55,15 @@ export function createJobs(getCtx: () => Ctx): Jobs {
       anchorTimer = setInterval(() => {
         if (queue.size === 0) void queue.add(safe("anchor", () => anchorAll(getCtx())));
       }, every);
+      // catches summaries whose timer was lost to a restart, sleep or a failed model call
+      summaryTimer = setInterval(() => {
+        if (!stopping) void queue.add(safe("summary-sweep", () => summarizePending(getCtx())));
+      }, 60_000);
     },
     async drain() {
       stopping = true;
       if (anchorTimer) clearInterval(anchorTimer);
+      if (summaryTimer) clearInterval(summaryTimer);
       for (const t of mathTimers.values()) clearTimeout(t);
       for (const t of summaryTimers.values()) clearTimeout(t);
       await queue.onIdle();

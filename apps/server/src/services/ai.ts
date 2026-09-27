@@ -45,7 +45,13 @@ agree rates on the cited statements clearly differ. Use group labels exactly as 
 who anyone is. Claims that the numbers do not support are removed automatically.`;
 
 const THROTTLE_MS = 10 * 60 * 1000;
+// After a failed model call, try again sooner than the normal throttle.
+const RETRY_MS = 2 * 60 * 1000;
 const lastRun = new Map<string, number>();
+
+function backOff(convId: string) {
+  lastRun.set(convId, Date.now() - THROTTLE_MS + RETRY_MS);
+}
 
 // How long until the throttle lets the next summary run for this conversation.
 export function summaryWaitMs(convId: string) {
@@ -84,11 +90,13 @@ export async function summarize(ctx: Ctx, convId: string, force = false) {
     raw = JSON.parse(await ctx.llm.complete(SYSTEM_PROMPT, user));
   } catch (err) {
     ctx.log.warn({ err, convId }, "summary request failed");
+    backOff(convId);
     return null;
   }
   const parsed = synthesisSchema.safeParse(raw);
   if (!parsed.success) {
-    ctx.log.warn({ convId }, "summary did not match schema");
+    ctx.log.warn({ convId, issues: parsed.error.issues.slice(0, 3) }, "summary did not match schema");
+    backOff(convId);
     return null;
   }
 
@@ -99,4 +107,17 @@ export async function summarize(ctx: Ctx, convId: string, force = false) {
     where id = ${row.id}`;
   ctx.log.info({ convId, atSeq: row.at_seq, kept: synthesis.commonGround.length + synthesis.tensions.length + synthesis.themes.length, dropped: dropped.length }, "summary stored");
   return { synthesis, dropped };
+}
+
+// Summaries otherwise hang off in-memory timers, which a restart or a free-tier sleep loses.
+// This sweep (run every minute) summarises any latest result that still has none, as soon
+// as the throttle allows.
+export async function summarizePending(ctx: Ctx) {
+  if (!ctx.llm) return;
+  const rows = await ctx.sql<{ conv_id: string }[]>`
+    select conv_id from (
+      select distinct on (conv_id) conv_id, synthesis, created_at from results order by conv_id, id desc
+    ) latest
+    where synthesis is null and created_at > now() - interval '2 days'`;
+  for (const r of rows) if (summaryWaitMs(r.conv_id) === 0) await summarize(ctx, r.conv_id);
 }
