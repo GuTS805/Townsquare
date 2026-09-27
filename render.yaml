@@ -3,6 +3,7 @@ services:
     name: townsquare-server
     runtime: node
     plan: free
+    region: singapore
     buildCommand: corepack enable && pnpm install --frozen-lockfile
     startCommand: pnpm --filter @townsquare/server start
     healthCheckPath: /healthz
