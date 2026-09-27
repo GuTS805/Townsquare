@@ -49,13 +49,14 @@ body {
   background: #042c25;
   padding: 0 18px;
   color: white;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   box-shadow: 0 3px 10px #04382b20;
 }
 
 .site-header-action:hover { background: #07533c; }
 .site-header-action span { font-size: 20px; line-height: 0; }
+.site-header:has(+ .site-main .participant-page) .site-header-action { display: none; }
 .site-header:not(:has(+ .site-main .home-page)) .site-nav { display: none; }
 
 @media (max-width: 760px) {
@@ -65,7 +66,7 @@ body {
 }
 
 @media (max-width: 400px) {
-  .site-header-action { padding-inline: 10px; font-size: 10px; }
+  .site-header-action { padding-inline: 10px; font-size: 12px; }
 }
 
 h1,
@@ -76,7 +77,7 @@ h3 {
 }
 
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-primary {
   @apply btn bg-teal text-white hover:bg-deep;
@@ -91,10 +92,10 @@ h3 {
   @apply rounded-2xl border border-line bg-white p-5;
 }
 @utility input {
-  @apply w-full rounded-xl border border-line bg-white px-4 py-3 text-sm outline-none focus:border-teal focus:ring-2 focus:ring-teal/20;
+  @apply w-full rounded-xl border border-line bg-white px-4 py-3 text-base outline-none focus:border-teal focus:ring-2 focus:ring-teal/20;
 }
 @utility label {
-  @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted;
+  @apply mb-1.5 block text-sm font-semibold uppercase tracking-wide text-muted;
 }
 @utility mono {
   @apply font-mono text-xs break-all;

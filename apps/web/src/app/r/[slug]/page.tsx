@@ -90,10 +90,10 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-teal">{data.title}</p>
-          <h1 className="mt-1 text-2xl font-bold">{data.question}</h1>
+          <p className="text-sm font-semibold uppercase tracking-widest text-teal">{data.title}</p>
+          <h1 className="mt-1 text-3xl font-bold">{data.question}</h1>
           {math && (
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 text-base text-muted">
               {math.nParticipantsTotal} participants · {math.nVotes} votes · {math.k || "no"} opinion groups
             </p>
           )}
@@ -102,14 +102,14 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
       </div>
 
       {!math ? (
-        <div className="card text-sm text-muted">Results appear a few seconds after the first votes.</div>
+        <div className="card text-base text-muted">Results appear a few seconds after the first votes.</div>
       ) : (
         <>
           <div className="grid gap-6 lg:grid-cols-5">
             <div className="card lg:col-span-3">
               <h2 className="mb-3 font-semibold">Opinion map</h2>
               <OpinionMap points={math.points} you={you} />
-              <div className="mt-3 flex flex-wrap gap-3 text-xs">
+              <div className="mt-3 flex flex-wrap gap-3 text-sm">
                 {math.groups.map((g) => (
                   <span key={g.id} className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ background: GROUP_COLORS[g.id % GROUP_COLORS.length] }} />
@@ -121,12 +121,12 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
             </div>
             <div className="card lg:col-span-2">
               <h2 className="font-semibold">All groups agree</h2>
-              <p className="text-xs text-muted">Every group leans agree on these.</p>
+              <p className="text-sm text-muted">Every group leans agree on these.</p>
               <ul className="mt-3 space-y-3">
                 {math.consensus.agree.slice(0, 6).map((c) => (
                   <StatRow key={c.sid} sid={c.sid} text={text.get(c.sid)} stat={stats.get(c.sid)} />
                 ))}
-                {math.consensus.agree.length === 0 && <li className="text-sm text-muted">No consensus yet.</li>}
+                {math.consensus.agree.length === 0 && <li className="text-base text-muted">No consensus yet.</li>}
               </ul>
             </div>
           </div>
@@ -137,12 +137,12 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
             {math.groups.map((g) => (
               <div key={g.id} className="card border-l-4" style={{ borderLeftColor: GROUP_COLORS[g.id % GROUP_COLORS.length] }}>
                 <h3 className="font-semibold">
-                  Group {g.label} <span className="text-sm font-normal text-muted">· {g.size} people</span>
+                  Group {g.label} <span className="text-base font-normal text-muted">· {g.size} people</span>
                 </h3>
                 {g.statsRedacted ? (
-                  <p className="mt-2 text-sm text-muted">Too small to show details without risking someone's privacy.</p>
+                  <p className="mt-2 text-base text-muted">Too small to show details without risking someone's privacy.</p>
                 ) : (
-                  <ul className="mt-2 space-y-2 text-sm">
+                  <ul className="mt-2 space-y-2 text-base">
                     {g.representative.slice(0, 4).map((r) => (
                       <li key={r.sid}>
                         <span className={r.direction === "agree" ? "text-agree" : "text-disagree"}>
@@ -160,7 +160,7 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
           {math.bridging && math.bridging.statements.length > 0 && (
             <div className="card">
               <h2 className="font-semibold">Bridging statements</h2>
-              <p className="text-xs text-muted">Agreed with across opinion groups, not just within one.</p>
+              <p className="text-sm text-muted">Agreed with across opinion groups, not just within one.</p>
               <ul className="mt-3 space-y-3">
                 {math.bridging.statements.slice(0, 5).map((b) => (
                   <StatRow key={b.sid} sid={b.sid} text={text.get(b.sid)} stat={stats.get(b.sid)} />
@@ -187,7 +187,7 @@ function StatRow({ sid, text, stat }: { sid: number; text?: string; stat?: State
   const seen = stat?.seen || 1;
   return (
     <li>
-      <p className="text-sm">
+      <p className="text-base">
         <span className="text-muted">#{sid}</span> {text}
       </p>
       {stat && (
@@ -204,9 +204,9 @@ function AnchorBadge({ slug, data }: { slug: string; data: Results }) {
   const a = data.lastAnchor;
   const ago = a ? Math.max(0, Math.round((Date.now() - new Date(a.created_at).getTime()) / 60000)) : null;
   return (
-    <Link href={`/verify/${slug}`} className="rounded-xl bg-teal-soft px-3 py-2 text-xs font-semibold text-teal hover:bg-teal-soft/70">
+    <Link href={`/verify/${slug}`} className="rounded-xl bg-teal-soft px-3 py-2 text-sm font-semibold text-teal hover:bg-teal-soft/70">
       {data.phase === "sealed" ? "Sealed ✓ · " : ""}
-      {a ? `Anchored ${ago === 0 ? "just now" : `${ago} min ago`}` : "Not anchored yet"} · Verify it yourself →
+      {a ? `Anchored ${ago === 0 ? "just now" : ago! < 60 ? `${ago} min ago` : ago! < 1440 ? `${Math.round(ago! / 60)} h ago` : `${Math.round(ago! / 1440)} d ago`}` : "Not anchored yet"} · Verify it yourself →
     </Link>
   );
 }
@@ -226,15 +226,15 @@ function Summary({ s, model, text, slug }: { s: Synthesis; model: string | null;
     <div className="card">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-semibold">AI summary</h2>
-        <Link href={`/verify/${slug}`} className="text-xs text-muted underline">
+        <Link href={`/verify/${slug}`} className="text-sm text-muted underline">
           {n} cited claims, each checked against the numbers (check F)
         </Link>
       </div>
-      <p className="mt-2 text-sm leading-relaxed">{s.overview}</p>
+      <p className="mt-2 text-base leading-relaxed">{s.overview}</p>
       {s.commonGround.length > 0 && (
         <>
-          <h3 className="mt-4 text-sm font-semibold">Common ground</h3>
-          <ul className="mt-1 space-y-1 text-sm">
+          <h3 className="mt-4 text-base font-semibold">Common ground</h3>
+          <ul className="mt-1 space-y-1 text-base">
             {s.commonGround.map((c, i) => (
               <li key={i}>
                 {c.claim}
@@ -246,8 +246,8 @@ function Summary({ s, model, text, slug }: { s: Synthesis; model: string | null;
       )}
       {s.tensions.length > 0 && (
         <>
-          <h3 className="mt-4 text-sm font-semibold">Where groups differ</h3>
-          <ul className="mt-1 space-y-1 text-sm">
+          <h3 className="mt-4 text-base font-semibold">Where groups differ</h3>
+          <ul className="mt-1 space-y-1 text-base">
             {s.tensions.map((t, i) => (
               <li key={i}>
                 <span className="text-muted">
@@ -263,7 +263,7 @@ function Summary({ s, model, text, slug }: { s: Synthesis; model: string | null;
       {s.themes.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           {s.themes.map((t, i) => (
-            <span key={i} className="rounded-full border border-line px-3 py-1 text-xs">
+            <span key={i} className="rounded-full border border-line px-3 py-1 text-sm">
               {t.title}
               <Cite sids={t.sids} />
             </span>

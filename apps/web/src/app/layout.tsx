@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Logo />
               Townsquare
             </Link>
-            <nav className="site-nav flex items-center gap-1 text-[13px] font-medium" aria-label="Main navigation">
+            <nav className="site-nav flex items-center gap-1 text-[14px] font-medium" aria-label="Main navigation">
               <Link href="/" className="site-nav-home">Home</Link>
               <Link href="/#how-it-works">How it works</Link>
               <Link href="/#verification">Verify</Link>
@@ -41,8 +41,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/new" className="site-header-action">Start a conversation <span aria-hidden="true">→</span></Link>
           </div>
         </header>
-        <main className="site-main mx-auto max-w-5xl px-4 py-8">{children}</main>
-        <footer className="mx-auto max-w-5xl px-4 pb-10 pt-4 text-xs text-muted">
+        <main className="site-main mx-auto max-w-6xl px-4 py-8">{children}</main>
+        <footer className="mx-auto max-w-6xl px-4 pb-10 pt-4 text-xs text-muted">
           Open source (MIT). Built on Semaphore, Anon Aadhaar and the Pocket Polis math.
         </footer>
       </body>

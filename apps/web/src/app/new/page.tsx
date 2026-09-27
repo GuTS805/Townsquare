@@ -61,7 +61,7 @@ export default function NewConversation() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="text-3xl font-bold">New conversation</h1>
-      <ol className="mt-6 flex gap-2 text-xs">
+      <ol className="mt-6 flex gap-2 text-sm">
         {STEPS.map((s, i) => (
           <li key={s} className={`flex-1 border-t-4 pt-2 ${i <= step ? "border-teal text-ink" : "border-line text-muted"}`}>
             {i + 1} · {s}
@@ -89,7 +89,7 @@ export default function NewConversation() {
 
         {step === 1 && (
           <>
-            <p className="text-sm text-muted">
+            <p className="text-base text-muted">
               Write 3–15 short statements people can agree or disagree with ({STATEMENT_MIN}–{STATEMENT_MAX} characters). Participants can add their own later.
             </p>
             {seeds.map((s, i) => {
@@ -103,7 +103,7 @@ export default function NewConversation() {
                     onChange={(e) => setSeeds(seeds.map((x, j) => (j === i ? e.target.value : x)))}
                     placeholder={i === 0 ? "The library should stay open till 10 pm during exams." : ""}
                   />
-                  <span className={`w-10 text-right text-xs ${bad ? "text-disagree" : "text-muted"}`}>{n}</span>
+                  <span className={`w-10 text-right text-sm ${bad ? "text-disagree" : "text-muted"}`}>{n}</span>
                 </div>
               );
             })}
@@ -133,11 +133,11 @@ export default function NewConversation() {
               />
             </div>
             {gate === "anon_aadhaar" && (
-              <label className="flex items-start gap-3 rounded-xl border border-line p-4 text-sm">
+              <label className="flex items-start gap-3 rounded-xl border border-line p-4 text-base">
                 <input type="checkbox" className="mt-0.5" checked={over18} onChange={(e) => setOver18(e.target.checked)} />
                 <span>
                   Require age above 18
-                  <span className="block text-xs text-muted">The proof reveals only a yes/no for this. Nothing else about the person is shared.</span>
+                  <span className="block text-sm text-muted">The proof reveals only a yes/no for this. Nothing else about the person is shared.</span>
                 </span>
               </label>
             )}
@@ -152,7 +152,7 @@ export default function NewConversation() {
                   value={codeCount}
                   onChange={(e) => setCodeCount(Math.max(1, Math.min(2000, Number(e.target.value))))}
                 />
-                <p className="mt-1.5 text-xs text-muted">One per person. You'll see them once, as a printable sheet.</p>
+                <p className="mt-1.5 text-sm text-muted">One per person. You'll see them once, as a printable sheet.</p>
               </div>
             )}
           </>
@@ -163,7 +163,7 @@ export default function NewConversation() {
             <div>
               <label className="label" htmlFor="f-min">Minimum anonymity set</label>
               <input id="f-min" type="number" className="input" min={2} max={1000} value={minMembers} onChange={(e) => setMinMembers(Math.max(2, Number(e.target.value)))} />
-              <p className="mt-1.5 text-xs text-muted">Voting opens once this many people have registered. 10 is the default; use 25+ for sensitive topics.</p>
+              <p className="mt-1.5 text-sm text-muted">Voting opens once this many people have registered. 10 is the default; use 25+ for sensitive topics.</p>
             </div>
             <div>
               <label className="label">New statements from participants</label>
@@ -178,7 +178,7 @@ export default function NewConversation() {
           </>
         )}
 
-        {error && <p className="rounded-xl bg-disagree/10 px-4 py-3 text-sm text-disagree">{error}</p>}
+        {error && <p className="rounded-xl bg-disagree/10 px-4 py-3 text-base text-disagree">{error}</p>}
 
         <div className="flex justify-between pt-2">
           <button className="btn-ghost" disabled={step === 0 || busy} onClick={() => setStep((step - 1) as Step)}>
@@ -210,7 +210,7 @@ function GateOption(p: { active: boolean; onClick: () => void; title: string; bo
         <span className="font-semibold">{p.title}</span>
         {p.note && <span className="rounded-full bg-line px-2 py-0.5 text-[10px] font-semibold uppercase text-muted">{p.note}</span>}
       </div>
-      <p className="mt-1.5 text-xs leading-relaxed text-muted">{p.body}</p>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted">{p.body}</p>
     </button>
   );
 }
@@ -222,7 +222,7 @@ function CreatedView({ c, title }: { c: Created; title: string }) {
     <div className="space-y-6">
       <div className="card border-warm bg-warm-soft">
         <h2 className="text-lg font-semibold">Save your admin link now</h2>
-        <p className="mt-1 text-sm text-muted">It's the only way to moderate, open and seal this conversation. Anyone with it is the host.</p>
+        <p className="mt-1 text-base text-muted">It's the only way to moderate, open and seal this conversation. Anyone with it is the host.</p>
         <p className="mono mt-3 rounded-lg bg-white p-3">{adminLink}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button className="btn-primary" onClick={() => navigator.clipboard.writeText(adminLink)}>
@@ -233,7 +233,7 @@ function CreatedView({ c, title }: { c: Created; title: string }) {
           </Link>
         </div>
         {c.chain && (
-          <p className="mt-3 text-xs text-muted">
+          <p className="mt-3 text-sm text-muted">
             Created on Base ·{" "}
             <a className="underline" href={txUrl(c.chain.txHash)} target="_blank" rel="noreferrer">
               view transaction

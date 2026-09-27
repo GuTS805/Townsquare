@@ -59,16 +59,16 @@ export default function Participate({ params }: { params: Promise<{ slug: string
   if (!conv || stage === "loading") return <p className="text-muted">Loading…</p>;
 
   return (
-    <div className="mx-auto max-w-md space-y-5">
+    <div className="participant-page mx-auto max-w-md space-y-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-teal">Townsquare</p>
+        <p className="text-sm font-semibold uppercase tracking-widest text-teal">Townsquare</p>
         <h1 className="mt-1 text-2xl font-bold">{conv.question}</h1>
-        {conv.context && <p className="mt-2 text-sm text-muted">{conv.context}</p>}
+        {conv.context && <p className="mt-2 text-base text-muted">{conv.context}</p>}
       </div>
 
       {(conv.phase === "closed" || conv.phase === "sealed") && stage !== "vote" ? (
         <div className="card">
-          <p className="text-sm">This conversation has {conv.phase === "sealed" ? "been sealed" : "closed"}.</p>
+          <p className="text-base">This conversation has {conv.phase === "sealed" ? "been sealed" : "closed"}.</p>
           <Link className="btn-primary mt-4 w-full" href={`/r/${slug}`}>
             See the results
           </Link>
@@ -95,8 +95,8 @@ export default function Participate({ params }: { params: Promise<{ slug: string
 function PrivacyCard() {
   return (
     <div className="rounded-2xl bg-teal-soft p-4">
-      <h3 className="text-sm font-semibold">What Townsquare knows about you</h3>
-      <p className="mt-1 text-sm text-muted">Nothing, except a proof that you're eligible and haven't joined before.</p>
+      <h3 className="text-base font-semibold">What Townsquare knows about you</h3>
+      <p className="mt-1 text-base text-muted">Nothing, except a proof that you're eligible and haven't joined before.</p>
     </div>
   );
 }
@@ -140,11 +140,11 @@ function Gate({ slug, conv, onDone }: { slug: string; conv: PublicConversation; 
             Your invite code
           </label>
           <input id="code" className="input font-mono uppercase tracking-wider" value={code} onChange={(e) => setCode(e.target.value)} placeholder="XXXXX-XXXXX" autoComplete="off" />
-          {error && <p className="text-sm text-disagree">{error}</p>}
+          {error && <p className="text-base text-disagree">{error}</p>}
           <button className="btn-primary w-full" disabled={busy || code.trim().length < 4} onClick={submit}>
             {busy ? "Registering…" : "Join with code"}
           </button>
-          <p className="text-center text-xs text-muted">The code is used once. Afterwards nothing links it to your votes.</p>
+          <p className="text-center text-sm text-muted">The code is used once. Afterwards nothing links it to your votes.</p>
         </div>
       ) : (
         <AadhaarGate slug={slug} conv={conv} onDone={onDone} />
@@ -158,7 +158,7 @@ function RestoreLink({ slug }: { slug: string }) {
   const input = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
   return (
-    <p className="text-center text-xs text-muted">
+    <p className="text-center text-sm text-muted">
       Joined on another device?{" "}
       <button className="underline" onClick={() => input.current?.click()}>
         Restore from backup
@@ -239,14 +239,14 @@ function Registered(p: {
     return (
       <div className="card space-y-4">
         <h2 className="font-semibold">Building your proof…</h2>
-        <ul className="space-y-2 text-sm">
+        <ul className="space-y-2 text-base">
           {STAGES.map((s, i) => (
             <li key={s.key} className={i < at ? "text-teal" : i === at ? "font-semibold" : "text-muted"}>
               {i < at ? "✓" : i === at ? "●" : "○"} {s.label}
             </li>
           ))}
         </ul>
-        <p className="rounded-xl bg-warm-soft px-3 py-2 text-center text-xs text-warm">Please don't close this tab</p>
+        <p className="rounded-xl bg-warm-soft px-3 py-2 text-center text-sm text-warm">Please don't close this tab</p>
       </div>
     );
   }
@@ -254,7 +254,7 @@ function Registered(p: {
   return (
     <div className="space-y-4">
       <div className="card">
-        <p className="text-sm">
+        <p className="text-base">
           You're member <b>#{p.member.index ?? "?"}</b>
           {p.member.txHash && (
             <>
@@ -265,7 +265,7 @@ function Registered(p: {
             </>
           )}
         </p>
-        <p className="mt-2 text-xs text-muted">Your anonymous identity for this conversation lives only in this browser.</p>
+        <p className="mt-2 text-sm text-muted">Your anonymous identity for this conversation lives only in this browser.</p>
         <button className="btn-outline mt-3 w-full" onClick={backup}>
           {backedUp ? "Backup downloaded ✓" : "Download a backup (to vote from another device)"}
         </button>
@@ -273,20 +273,20 @@ function Registered(p: {
 
       <div className="card">
         {conv.phase !== "open" ? (
-          <p className="text-sm text-muted">Voting hasn't opened yet. Keep this page; you can come back any time.</p>
+          <p className="text-base text-muted">Voting hasn't opened yet. Keep this page; you can come back any time.</p>
         ) : !ready ? (
           <>
-            <p className="text-sm font-semibold">
+            <p className="text-base font-semibold">
               Voting opens at {conv.minMembers} members (now {conv.counts.members})
             </p>
             <div className="mt-3 h-2 rounded-full bg-line">
               <div className="h-2 rounded-full bg-teal transition-all" style={{ width: `${Math.min(100, (conv.counts.members / conv.minMembers) * 100)}%` }} />
             </div>
-            <p className="mt-2 text-xs text-muted">Waiting keeps you anonymous: your vote hides among everyone who joined.</p>
+            <p className="mt-2 text-sm text-muted">Waiting keeps you anonymous: your vote hides among everyone who joined.</p>
           </>
         ) : (
           <>
-            <p className="text-sm">
+            <p className="text-base">
               {conv.counts.members} people are in the group. Joining now proves you're one of them without saying which.
             </p>
             <button className="btn-primary mt-3 w-full" onClick={join}>
@@ -294,7 +294,7 @@ function Registered(p: {
             </button>
           </>
         )}
-        {error && <p className="mt-3 text-sm text-disagree">{error}</p>}
+        {error && <p className="mt-3 text-base text-disagree">{error}</p>}
       </div>
     </div>
   );
@@ -351,7 +351,7 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
   return (
     <div className="space-y-4">
       <div>
-        <div className="flex justify-between text-xs text-muted">
+        <div className="flex justify-between text-sm text-muted">
           <span>
             {next.seen} of {next.total} seen
           </span>
@@ -365,19 +365,19 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
       </div>
 
       {closed ? (
-        <div className="card text-sm">Voting has closed.</div>
+        <div className="card text-base">Voting has closed.</div>
       ) : next.statement ? (
         <div className="card">
-          <p className="min-h-24 text-lg leading-snug">{next.statement.text}</p>
-          <p className="mt-3 text-xs text-muted">Statement #{next.statement.sid}</p>
+          <p className="min-h-28 text-xl font-medium leading-snug sm:text-2xl">{next.statement.text}</p>
+          <p className="mt-3 text-sm text-muted">Statement #{next.statement.sid}</p>
           <div className="mt-4 grid grid-cols-3 gap-2">
-            <button className="btn bg-agree text-white hover:opacity-90" disabled={busy} onClick={() => vote(1)}>
+            <button className="btn py-4 px-2 sm:px-5 bg-agree text-white hover:opacity-90" disabled={busy} onClick={() => vote(1)}>
               Agree
             </button>
-            <button className="btn bg-disagree text-white hover:opacity-90" disabled={busy} onClick={() => vote(-1)}>
+            <button className="btn py-4 px-2 sm:px-5 bg-disagree text-white hover:opacity-90" disabled={busy} onClick={() => vote(-1)}>
               Disagree
             </button>
-            <button className="btn bg-line text-ink hover:bg-line/70" disabled={busy} onClick={() => vote(0)}>
+            <button className="btn py-4 px-2 sm:px-5 bg-line text-ink hover:bg-line/70" disabled={busy} onClick={() => vote(0)}>
               Pass
             </button>
           </div>
@@ -385,7 +385,7 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
       ) : (
         <div className="card text-center">
           <p className="font-semibold">You've seen every statement.</p>
-          <p className="mt-1 text-sm text-muted">Add your own, or see where you stand.</p>
+          <p className="mt-1 text-base text-muted">Add your own, or see where you stand.</p>
           <Link href={`/r/${slug}`} className="btn-primary mt-4 w-full">
             See the opinion map
           </Link>
@@ -397,7 +397,7 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
           <div className="card space-y-3">
             <textarea className="input min-h-24" value={text} onChange={(e) => setText(e.target.value)} placeholder="Write something others can agree or disagree with" maxLength={STATEMENT_MAX + 20} />
             <div className="flex items-center justify-between">
-              <span className={`text-xs ${text && !textOk ? "text-disagree" : "text-muted"}`}>
+              <span className={`text-sm ${text && !textOk ? "text-disagree" : "text-muted"}`}>
                 {clean.length}/{STATEMENT_MAX}
               </span>
               <div className="flex gap-2">
@@ -418,7 +418,7 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
                 </button>
               </div>
             </div>
-            {conv.moderation === "pre" && <p className="text-xs text-muted">The host reviews new statements before others see them.</p>}
+            {conv.moderation === "pre" && <p className="text-sm text-muted">The host reviews new statements before others see them.</p>}
           </div>
         ) : (
           <button className="btn-ghost w-full text-teal" onClick={() => setWriting(true)}>
@@ -426,8 +426,8 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
           </button>
         ))}
 
-      {error && <p className="text-center text-sm text-disagree">{error}</p>}
-      {receipt !== null && <p className="rounded-xl bg-indigo-soft py-2 text-center text-xs text-indigo">Receipt #{receipt} saved on this device</p>}
+      {error && <p className="text-center text-base text-disagree">{error}</p>}
+      {receipt !== null && <p className="rounded-xl bg-indigo-soft py-2 text-center text-sm text-indigo">Receipt #{receipt} saved on this device</p>}
     </div>
   );
 }
@@ -473,7 +473,7 @@ function AadhaarGate({ slug, conv, onDone }: { slug: string; conv: PublicConvers
   }
 
   if (mode === "production") {
-    return <div className="card text-sm text-muted">This build runs Anon Aadhaar in test mode only. Ask the host for an invite code.</div>;
+    return <div className="card text-base text-muted">This build runs Anon Aadhaar in test mode only. Ask the host for an invite code.</div>;
   }
 
   if (stage) {
@@ -481,14 +481,14 @@ function AadhaarGate({ slug, conv, onDone }: { slug: string; conv: PublicConvers
     return (
       <div className="card space-y-4">
         <h2 className="font-semibold">Building your proof…</h2>
-        <ul className="space-y-2 text-sm">
+        <ul className="space-y-2 text-base">
           {AADHAAR_STAGES.map((s, i) => (
             <li key={s.key} className={i < at ? "text-teal" : i === at ? "font-semibold" : "text-muted"}>
               {i < at ? "✓" : i === at ? "●" : "○"} {s.label}
             </li>
           ))}
         </ul>
-        <p className="rounded-xl bg-warm-soft px-3 py-2 text-center text-xs text-warm">Please don't close this tab. This can take a few minutes on a phone.</p>
+        <p className="rounded-xl bg-warm-soft px-3 py-2 text-center text-sm text-warm">Please don't close this tab. This can take a few minutes on a phone.</p>
       </div>
     );
   }
@@ -509,14 +509,14 @@ function AadhaarGate({ slug, conv, onDone }: { slug: string; conv: PublicConvers
           e.target.value = "";
         }}
       />
-      <p className="text-center text-xs text-muted">
+      <p className="text-center text-sm text-muted">
         Upload a screenshot of the Secure QR. It never leaves this phone; only a zero-knowledge proof does.
         {conv.gate.reveal.includes("ageAbove18") && " The proof shows you're over 18 and nothing else."}
       </p>
-      <p className="rounded-xl bg-indigo-soft px-3 py-2 text-center text-xs text-indigo">
+      <p className="rounded-xl bg-indigo-soft px-3 py-2 text-center text-sm text-indigo">
         Test mode: use a test QR from the Anon Aadhaar test QR generator, not a real Aadhaar.
       </p>
-      {error && <p className="text-sm text-disagree">{error}</p>}
+      {error && <p className="text-base text-disagree">{error}</p>}
     </div>
   );
 }

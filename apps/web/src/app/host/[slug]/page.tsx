@@ -84,7 +84,7 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-teal">Host dashboard · {d.phase}</p>
+          <p className="text-sm font-semibold uppercase tracking-widest text-teal">Host dashboard · {d.phase}</p>
           <h1 className="mt-1 text-2xl font-bold">{d.question}</h1>
         </div>
         <div className="flex gap-2">
@@ -108,9 +108,9 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
         </div>
       </div>
 
-      {error && <p className="rounded-xl bg-disagree/10 px-4 py-3 text-sm text-disagree">{error}</p>}
+      {error && <p className="rounded-xl bg-disagree/10 px-4 py-3 text-base text-disagree">{error}</p>}
       {(sealed || d.finalResultHash) && (
-        <div className="card border-teal bg-teal-soft text-sm">
+        <div className="card border-teal bg-teal-soft text-base">
           Sealed. Final result hash <span className="mono">{sealed?.finalResultHash ?? d.finalResultHash}</span>
           {sealed?.txHash && (
             <a className="ml-2 underline" href={txUrl(sealed.txHash)} target="_blank" rel="noreferrer">
@@ -137,7 +137,7 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="card lg:col-span-2">
           <h2 className="font-semibold">Anonymity</h2>
-          <p className="text-sm text-muted">
+          <p className="text-base text-muted">
             Voting opens at {d.minMembers} members; now {d.counts.members}.
           </p>
           <div className="mt-3 h-3 rounded-full bg-line">
@@ -145,24 +145,24 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
           </div>
 
           <h2 className="mt-6 font-semibold">Moderation {pending.length > 0 && <span className="text-warm">· {pending.length} waiting</span>}</h2>
-          <p className="text-xs text-muted">Every decision is logged publicly with its reason.</p>
+          <p className="text-sm text-muted">Every decision is logged publicly with its reason.</p>
           <ul className="mt-3 divide-y divide-line">
             {mods.slice(0, 30).map((m) => (
-              <li key={m.sid} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
+              <li key={m.sid} className="flex flex-wrap items-center gap-2 py-2.5 text-base">
                 <span className="text-muted">#{m.sid}</span>
                 <span className="flex-1">{m.text}</span>
                 {m.status === "pending" || m.status === "approved" ? (
                   <>
                     {m.status === "pending" && (
                       <button
-                        className="rounded-lg bg-teal px-2.5 py-1 text-xs font-semibold text-white"
+                        className="rounded-lg bg-teal px-2.5 py-1 text-sm font-semibold text-white"
                         onClick={() => act(`m${m.sid}`, () => api(`/conversations/${slug}/statements/${m.sid}/moderate`, { body: { status: "approved", reasonCode: "ok" }, token }))}
                       >
                         Approve
                       </button>
                     )}
                     <select
-                      className="rounded-lg border border-line px-2 py-1 text-xs"
+                      className="rounded-lg border border-line px-2 py-1 text-sm"
                       value=""
                       onChange={(e) =>
                         act(`m${m.sid}`, () => api(`/conversations/${slug}/statements/${m.sid}/moderate`, { body: { status: "rejected", reasonCode: e.target.value }, token }))
@@ -179,7 +179,7 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
                     </select>
                   </>
                 ) : (
-                  <span className="text-xs text-disagree">rejected · {m.reason_code?.replace("_", " ")}</span>
+                  <span className="text-sm text-disagree">rejected · {m.reason_code?.replace("_", " ")}</span>
                 )}
               </li>
             ))}
@@ -191,7 +191,7 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
             <h2 className="font-semibold">Share</h2>
             <QRCodeSVG value={participate} size={148} className="mx-auto mt-3" />
             <p className="mono mt-3">{participate}</p>
-            <div className="mt-3 flex justify-center gap-2 text-xs">
+            <div className="mt-3 flex justify-center gap-2 text-sm">
               <Link className="text-teal underline" href={`/r/${slug}`}>
                 Public report
               </Link>
@@ -204,9 +204,9 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
           <div className="card">
             <h2 className="font-semibold">Blocked attempts</h2>
             {Object.keys(d.rejections).length === 0 ? (
-              <p className="mt-1 text-sm text-muted">None so far.</p>
+              <p className="mt-1 text-base text-muted">None so far.</p>
             ) : (
-              <ul className="mt-2 space-y-1 font-mono text-xs">
+              <ul className="mt-2 space-y-1 font-mono text-sm">
                 {Object.entries(d.rejections)
                   .sort((a, b) => b[1] - a[1])
                   .map(([code, n]) => (
@@ -222,9 +222,9 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
           <div className="card">
             <h2 className="font-semibold">Anchors</h2>
             {d.batches.length === 0 ? (
-              <p className="mt-1 text-sm text-muted">Nothing anchored yet. Batches go out every 2 minutes.</p>
+              <p className="mt-1 text-base text-muted">Nothing anchored yet. Batches go out every 2 minutes.</p>
             ) : (
-              <ul className="mt-2 space-y-1 text-xs">
+              <ul className="mt-2 space-y-1 text-sm">
                 {d.batches.map((b) => (
                   <li key={b.batch_id} className="flex justify-between">
                     <span>
