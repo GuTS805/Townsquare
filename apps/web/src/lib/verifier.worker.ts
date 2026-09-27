@@ -19,7 +19,7 @@ self.onmessage = async (ev: MessageEvent<{ bundle: Bundle; rpcUrl: string }>) =>
   try {
     if (bundle.meta.onchain && bundle.meta.hubAddress && bundle.conversation.chain) {
       self.postMessage({ type: "status", text: "Reading anchors from Base…" });
-      chain = await fetchChainData(rpcUrl, bundle.meta.hubAddress as Hex, bundle.conversation.chain.convId);
+      chain = await fetchChainData(rpcUrl, bundle.meta.hubAddress as Hex, bundle.conversation.chain.convId, { createTx: bundle.conversation.chain.txHash });
     }
     self.postMessage({ type: "chain", chain });
     for (const run of [

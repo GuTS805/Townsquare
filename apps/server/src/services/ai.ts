@@ -47,6 +47,11 @@ who anyone is. Claims that the numbers do not support are removed automatically.
 const THROTTLE_MS = 10 * 60 * 1000;
 const lastRun = new Map<string, number>();
 
+// How long until the throttle lets the next summary run for this conversation.
+export function summaryWaitMs(convId: string) {
+  return Math.max(0, (lastRun.get(convId) ?? 0) + THROTTLE_MS - Date.now());
+}
+
 export async function summarize(ctx: Ctx, convId: string, force = false) {
   if (!ctx.llm) return null;
   if (!force && Date.now() - (lastRun.get(convId) ?? 0) < THROTTLE_MS) return null;

@@ -23,7 +23,7 @@ async function main() {
   if (!r.ok) throw new Error(`could not download bundle: ${r.code}`);
   const b = r.data;
   const rpc = arg("rpc", RPCS[b.meta.chainId] ?? "");
-  const chain = b.meta.onchain && b.meta.hubAddress && b.conversation.chain && rpc ? await fetchChainData(rpc, b.meta.hubAddress as Hex, b.conversation.chain.convId) : null;
+  const chain = b.meta.onchain && b.meta.hubAddress && b.conversation.chain && rpc ? await fetchChainData(rpc, b.meta.hubAddress as Hex, b.conversation.chain.convId, { createTx: b.conversation.chain.txHash }) : null;
 
   console.log(`${slug}: ${b.events.length} events, ${chain ? `${chain.batches.length} anchors read from ${rpc}` : "not anchored onchain"}\n`);
   const checks = await verifyAll(b, chain);

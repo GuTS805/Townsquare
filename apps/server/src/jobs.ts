@@ -1,7 +1,7 @@
 import PQueue from "p-queue";
 import type { Ctx } from "./context";
 import { anchorAll } from "./services/anchor";
-import { summarize } from "./services/ai";
+import { summarize, summaryWaitMs } from "./services/ai";
 import { recomputeResults } from "./services/results";
 
 export interface Jobs {
@@ -18,6 +18,7 @@ const MATH_DEBOUNCE_MS = 3_000;
 export function createJobs(getCtx: () => Ctx): Jobs {
   const queue = new PQueue({ concurrency: 1 });
   const mathTimers = new Map<string, NodeJS.Timeout>();
+  const summaryTimers = new Map<string, NodeJS.Timeout>();
   let anchorTimer: NodeJS.Timeout | null = null;
   let stopping = false;
 
@@ -34,8 +35,17 @@ export function createJobs(getCtx: () => Ctx): Jobs {
         setTimeout(() => {
           mathTimers.delete(convId);
           void queue.add(safe("math", () => recomputeResults(getCtx(), convId)));
-          // throttled inside to once per 10 minutes per conversation
-          void queue.add(safe("summary", () => summarize(getCtx(), convId)));
+          // At most once per 10 minutes, but always once after the last burst of votes,
+          // so the latest result gets a summary even when voting stops inside the window.
+          if (!summaryTimers.has(convId)) {
+            summaryTimers.set(
+              convId,
+              setTimeout(() => {
+                summaryTimers.delete(convId);
+                if (!stopping) void queue.add(safe("summary", () => summarize(getCtx(), convId)));
+              }, summaryWaitMs(convId)),
+            );
+          }
         }, MATH_DEBOUNCE_MS),
       );
     },
@@ -49,6 +59,7 @@ export function createJobs(getCtx: () => Ctx): Jobs {
       stopping = true;
       if (anchorTimer) clearInterval(anchorTimer);
       for (const t of mathTimers.values()) clearTimeout(t);
+      for (const t of summaryTimers.values()) clearTimeout(t);
       await queue.onIdle();
       await anchorAll(getCtx(), true);
       await getCtx().relayer.idle();
