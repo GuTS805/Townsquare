@@ -14,8 +14,10 @@ example `cast wallet new`) and keep its private key. It only ever needs test ETH
 
 ## 2. Gas
 
-Claim Base Sepolia ETH for the relayer address from the QuickNode faucet (no mainnet balance needed, one
-claim every 12 hours). After deploying, send one real transaction (open a test conversation) and check the gas
+Claim Base Sepolia ETH for the relayer address. The Coinbase Developer Platform faucet
+(portal.cdp.coinbase.com/products/faucet) takes any address after a login. The QuickNode faucet also works,
+but only for a wallet holding at least 0.001 ETH on Ethereum mainnet, so claim there with your own wallet and
+send the test ETH on to the relayer. After deploying, send one real transaction (open a test conversation) and check the gas
 used in the server log (`"msg":"relayed"` lines include `gas`) so you know how many claims the pilot needs.
 Local runs against a mock Semaphore used `createConversation` ~178k gas, `addMember` ~87k and `anchor` ~36k.
 The real Semaphore contract updates an onchain Merkle tree, so `createConversation` and `addMember` will cost

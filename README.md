@@ -100,7 +100,7 @@ supabase/        Postgres schema: RLS on every table, append-only event log
 | | Base Sepolia |
 |---|---|
 | Semaphore V4 (existing) | `0x8A1fd199516489B0Fb7153EB5f075cDAC83c693D` |
-| TownsquareHub | _added after deployment_ |
+| TownsquareHub | [`0x138F2F75e1399a6c9C8B2A387A1C26A362AC390E`](https://sepolia.basescan.org/address/0x138F2F75e1399a6c9C8B2A387A1C26A362AC390E) |
 
 ## Run it locally
 

@@ -12,7 +12,7 @@ coverage/
 # foundry
 packages/contracts/out/
 packages/contracts/cache/
-packages/contracts/broadcast/*/31337/
+packages/contracts/broadcast/
 *.tsbuildinfo
 
 # demo state (admin token, identities)
