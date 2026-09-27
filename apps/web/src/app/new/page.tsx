@@ -59,17 +59,21 @@ export default function NewConversation() {
   if (created) return <CreatedView c={created} title={title} />;
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <h1 className="text-3xl font-bold">New conversation</h1>
-      <ol className="mt-6 flex gap-2 text-sm">
+    <div className="app-page new-page mx-auto max-w-2xl">
+      <div className="page-hero">
+        <p className="page-kicker">Create a Townsquare</p>
+        <h1 className="text-3xl font-bold">New conversation</h1>
+        <p className="mt-2 text-base text-muted">Set the question, invite people, and let every voice count.</p>
+      </div>
+      <ol className="wizard-steps mt-6 flex gap-2 text-sm">
         {STEPS.map((s, i) => (
-          <li key={s} className={`flex-1 border-t-4 pt-2 ${i <= step ? "border-teal text-ink" : "border-line text-muted"}`}>
+          <li key={s} className={`flex-1 border-t-4 pt-2 ${i <= step ? "border-teal text-ink" : "border-line text-muted"}`} aria-current={i === step ? "step" : undefined}>
             {i + 1} · {s}
           </li>
         ))}
       </ol>
 
-      <div className="card mt-6 space-y-5">
+      <div key={step} className="card wizard-panel mt-6 space-y-5">
         {step === 0 && (
           <>
             <div>
@@ -204,11 +208,12 @@ function GateOption(p: { active: boolean; onClick: () => void; title: string; bo
     <button
       disabled={p.disabled}
       onClick={p.onClick}
-      className={`rounded-2xl border p-4 text-left transition disabled:opacity-50 ${p.active ? "border-teal bg-teal-soft" : "border-line bg-white hover:border-teal/50"}`}
+      className={`gate-option rounded-2xl border p-4 text-left transition disabled:opacity-50 ${p.active ? "border-teal bg-teal-soft" : "border-line bg-white hover:border-teal/50"}`}
+      aria-pressed={p.active}
     >
       <div className="flex items-center justify-between">
         <span className="font-semibold">{p.title}</span>
-        {p.note && <span className="rounded-full bg-line px-2 py-0.5 text-[10px] font-semibold uppercase text-muted">{p.note}</span>}
+        {p.note && <span className="rounded-full bg-line px-2 py-0.5 text-xs font-semibold uppercase text-muted">{p.note}</span>}
       </div>
       <p className="mt-1.5 text-sm leading-relaxed text-muted">{p.body}</p>
     </button>
@@ -219,7 +224,7 @@ function CreatedView({ c, title }: { c: Created; title: string }) {
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const adminLink = `${origin}/host/${c.slug}#${c.adminToken}`;
   return (
-    <div className="space-y-6">
+    <div className="app-page created-page space-y-6">
       <div className="card border-warm bg-warm-soft">
         <h2 className="text-lg font-semibold">Save your admin link now</h2>
         <p className="mt-1 text-base text-muted">It's the only way to moderate, open and seal this conversation. Anyone with it is the host.</p>

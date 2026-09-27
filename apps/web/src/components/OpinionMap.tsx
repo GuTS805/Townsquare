@@ -20,17 +20,23 @@ export function OpinionMap({ points, you }: { points: Point[]; you?: Point | nul
   const W = 400;
   const H = 280;
   const pad = 28;
-  const sx = (x: number) => pad + ((x - minX) / (maxX - minX || 1)) * (W - 2 * pad);
-  const sy = (y: number) => pad + ((y - minY) / (maxY - minY || 1)) * (H - 2 * pad);
+  const sx = (x: number) => maxX === minX ? W / 2 : pad + ((x - minX) / (maxX - minX)) * (W - 2 * pad);
+  const sy = (y: number) => maxY === minY ? H / 2 : pad + ((y - minY) / (maxY - minY)) * (H - 2 * pad);
 
   const groups = [...new Set(points.map((p) => p.group))];
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="max-h-[22rem] w-full rounded-2xl bg-paper" role="img" aria-label="Opinion map">
+    <svg viewBox={`0 0 ${W} ${H}`} className="opinion-map max-h-[22rem] w-full rounded-2xl bg-paper" role="img" aria-label="Opinion map">
+      <g className="map-grid" aria-hidden="true" fill="none" stroke="#8abda5" strokeOpacity=".28">
+        <circle cx={W / 2} cy={H / 2} r="48" />
+        <circle cx={W / 2} cy={H / 2} r="90" />
+        <circle cx={W / 2} cy={H / 2} r="130" />
+        <path d={`M${W / 2} 0v${H}M0 ${H / 2}h${W}`} strokeOpacity=".35" />
+      </g>
       {groups.map((g) => {
         const hull = convexHull(points.filter((p) => p.group === g).map((p) => [sx(p.x), sy(p.y)] as [number, number]));
         const color = GROUP_COLORS[g % GROUP_COLORS.length];
         return hull.length >= 3 ? (
-          <polygon key={`h${g}`} points={hull.map((p) => p.join(",")).join(" ")} fill={color} fillOpacity={0.1} stroke={color} strokeOpacity={0.4} strokeLinejoin="round" strokeWidth={14} />
+          <polygon key={`h${g}`} className="map-hull" points={hull.map((p) => p.join(",")).join(" ")} fill={color} fillOpacity={0.1} stroke={color} strokeOpacity={0.4} strokeLinejoin="round" strokeWidth={14} />
         ) : null;
       })}
       {points.map((p, i) => (
@@ -38,7 +44,7 @@ export function OpinionMap({ points, you }: { points: Point[]; you?: Point | nul
       ))}
       {you && (
         <g>
-          <circle cx={sx(you.x)} cy={sy(you.y)} r={10} fill="white" stroke="#13201f" strokeWidth={2.5} />
+          <circle className="map-you" cx={sx(you.x)} cy={sy(you.y)} r={10} fill="white" stroke="#13201f" strokeWidth={2.5} />
           <text x={sx(you.x)} y={sy(you.y) - 15} textAnchor="middle" fontSize="12" fontWeight="600" fill="#13201f">
             you
           </text>

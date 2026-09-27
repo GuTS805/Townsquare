@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { PageMotion } from "@/components/PageMotion";
 import "./globals.css";
+import "./motion.css";
 
 export const metadata: Metadata = {
   title: "Townsquare · Proof that real people agree",
@@ -41,8 +43,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/new" className="site-header-action">Start a conversation <span aria-hidden="true">→</span></Link>
           </div>
         </header>
-        <main className="site-main mx-auto max-w-6xl px-4 py-8">{children}</main>
-        <footer className="mx-auto max-w-6xl px-4 pb-10 pt-4 text-xs text-muted">
+        <main className="site-main mx-auto max-w-6xl px-4 py-8"><PageMotion>{children}</PageMotion></main>
+        <footer className="mx-auto max-w-6xl px-4 pb-10 pt-4 text-sm text-muted">
           Open source (MIT). Built on Semaphore, Anon Aadhaar and the Pocket Polis math.
         </footer>
       </body>

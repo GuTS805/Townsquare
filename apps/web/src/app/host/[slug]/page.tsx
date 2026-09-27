@@ -72,8 +72,13 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
     }
   }
 
-  if (token === null) return <p className="card">Open this page with your admin link.</p>;
-  if (!d) return <p className="text-muted">{error ?? "Loading…"}</p>;
+  if (token === null) return (
+    <div className="app-page host-page mx-auto max-w-xl space-y-6">
+      <div className="page-hero"><p className="page-kicker">Host dashboard</p><h1>Admin link required</h1></div>
+      <div className="card">Open this page with your admin link.</div>
+    </div>
+  );
+  if (!d) return error ? <div className="app-page"><p className="card text-disagree">{error}</p></div> : <div className="app-loading" role="status">Loading dashboard…</div>;
 
   const origin = window.location.origin;
   const participate = `${origin}/c/${slug}`;
@@ -81,8 +86,8 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
   const anonPct = Math.min(100, (d.counts.members / d.minMembers) * 100);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="app-page host-page space-y-6">
+      <div className="page-hero flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-teal">Host dashboard · {d.phase}</p>
           <h1 className="mt-1 text-2xl font-bold">{d.question}</h1>
@@ -120,14 +125,14 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
           ["Members", d.counts.members],
           ["Joined", d.counts.participants],
           ["Votes", d.counts.votes],
           ["Votes / 5 min", d.votesLast5Min],
         ].map(([k, v]) => (
-          <div key={k} className="card">
+          <div key={k} className="card metric-card">
             <p className="label">{k}</p>
             <p className="text-3xl font-bold">{v}</p>
           </div>
@@ -140,13 +145,13 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
           <p className="text-base text-muted">
             Voting opens at {d.minMembers} members; now {d.counts.members}.
           </p>
-          <div className="mt-3 h-3 rounded-full bg-line">
-            <div className={`h-3 rounded-full ${d.anonymityReady ? "bg-teal" : "bg-warm"}`} style={{ width: `${anonPct}%` }} />
+          <div className="progress-track mt-3 h-3 rounded-full bg-line">
+            <div className={`progress-fill h-3 rounded-full ${d.anonymityReady ? "bg-teal" : "bg-warm"}`} style={{ width: `${anonPct}%` }} />
           </div>
 
           <h2 className="mt-6 font-semibold">Moderation {pending.length > 0 && <span className="text-warm">· {pending.length} waiting</span>}</h2>
           <p className="text-sm text-muted">Every decision is logged publicly with its reason.</p>
-          <ul className="mt-3 divide-y divide-line">
+          <ul className="moderation-list mt-3 divide-y divide-line">
             {mods.slice(0, 30).map((m) => (
               <li key={m.sid} className="flex flex-wrap items-center gap-2 py-2.5 text-base">
                 <span className="text-muted">#{m.sid}</span>
@@ -162,7 +167,7 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
                       </button>
                     )}
                     <select
-                      className="rounded-lg border border-line px-2 py-1 text-sm"
+                      className="rounded-lg border border-line px-2 py-1 text-base"
                       value=""
                       onChange={(e) =>
                         act(`m${m.sid}`, () => api(`/conversations/${slug}/statements/${m.sid}/moderate`, { body: { status: "rejected", reasonCode: e.target.value }, token }))
@@ -187,7 +192,7 @@ export default function Host({ params }: { params: Promise<{ slug: string }> }) 
         </div>
 
         <div className="space-y-6">
-          <div className="card text-center">
+          <div className="card share-card text-center">
             <h2 className="font-semibold">Share</h2>
             <QRCodeSVG value={participate} size={148} className="mx-auto mt-3" />
             <p className="mono mt-3">{participate}</p>

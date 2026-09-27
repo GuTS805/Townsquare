@@ -70,8 +70,8 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
   const text = useMemo(() => new Map(data?.statements.map((s) => [s.sid, s.text]) ?? []), [data]);
   const stats = useMemo(() => new Map(data?.result?.math.statementStats.map((s) => [s.sid, s]) ?? []), [data]);
 
-  if (error && !data) return <p className="card text-disagree">{error}</p>;
-  if (!data) return <p className="text-muted">Loading…</p>;
+  if (error && !data) return <div className="app-page"><p className="card text-disagree">{error}</p></div>;
+  if (!data) return <div className="app-loading" role="status">Loading results…</div>;
   const math = data.result?.math;
 
   function exportCsv() {
@@ -87,8 +87,8 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="app-page report-page space-y-6">
+      <div className="page-hero flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-teal">{data.title}</p>
           <h1 className="mt-1 text-3xl font-bold">{data.question}</h1>
@@ -106,7 +106,7 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
       ) : (
         <>
           <div className="grid gap-6 lg:grid-cols-5">
-            <div className="card lg:col-span-3">
+            <div className="card map-card lg:col-span-3">
               <h2 className="mb-3 font-semibold">Opinion map</h2>
               <OpinionMap points={math.points} you={you} />
               <div className="mt-3 flex flex-wrap gap-3 text-sm">
@@ -186,14 +186,14 @@ export default function Report({ params }: { params: Promise<{ slug: string }> }
 function StatRow({ sid, text, stat }: { sid: number; text?: string; stat?: StatementStat }) {
   const seen = stat?.seen || 1;
   return (
-    <li>
+    <li className="stat-row">
       <p className="text-base">
         <span className="text-muted">#{sid}</span> {text}
       </p>
       {stat && (
         <div className="mt-1 flex h-1.5 overflow-hidden rounded-full bg-line" title={`${stat.agrees} agree · ${stat.disagrees} disagree · ${stat.passes} pass`}>
-          <div className="bg-agree" style={{ width: `${(stat.agrees / seen) * 100}%` }} />
-          <div className="bg-disagree" style={{ width: `${(stat.disagrees / seen) * 100}%` }} />
+          <div className="stat-fill bg-agree" style={{ width: `${(stat.agrees / seen) * 100}%` }} />
+          <div className="stat-fill bg-disagree" style={{ width: `${(stat.disagrees / seen) * 100}%` }} />
         </div>
       )}
     </li>
@@ -204,7 +204,7 @@ function AnchorBadge({ slug, data }: { slug: string; data: Results }) {
   const a = data.lastAnchor;
   const ago = a ? Math.max(0, Math.round((Date.now() - new Date(a.created_at).getTime()) / 60000)) : null;
   return (
-    <Link href={`/verify/${slug}`} className="rounded-xl bg-teal-soft px-3 py-2 text-sm font-semibold text-teal hover:bg-teal-soft/70">
+    <Link href={`/verify/${slug}`} className="anchor-badge rounded-xl bg-teal-soft px-3 py-2 text-sm font-semibold text-teal hover:bg-teal-soft/70">
       {data.phase === "sealed" ? "Sealed ✓ · " : ""}
       {a ? `Anchored ${ago === 0 ? "just now" : ago! < 60 ? `${ago} min ago` : ago! < 1440 ? `${Math.round(ago! / 60)} h ago` : `${Math.round(ago! / 1440)} d ago`}` : "Not anchored yet"} · Verify it yourself →
     </Link>
@@ -216,7 +216,7 @@ function Summary({ s, model, text, slug }: { s: Synthesis; model: string | null;
   const Cite = ({ sids }: { sids: number[] }) => (
     <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">
       {sids.map((sid) => (
-        <span key={sid} title={text.get(sid)} className="cursor-help rounded-full bg-indigo-soft px-1.5 py-0.5 text-[10px] font-semibold text-indigo">
+        <span key={sid} title={text.get(sid)} className="cursor-help rounded-full bg-indigo-soft px-1.5 py-0.5 text-xs font-semibold text-indigo">
           #{sid}
         </span>
       ))}
@@ -270,7 +270,7 @@ function Summary({ s, model, text, slug }: { s: Synthesis; model: string | null;
           ))}
         </div>
       )}
-      {model && <p className="mt-4 text-[11px] text-muted">Written by {model}. Claims the vote numbers don't support are removed automatically.</p>}
+      {model && <p className="mt-4 text-sm text-muted">Written by {model}. Claims the vote numbers don't support are removed automatically.</p>}
     </div>
   );
 }

@@ -35,7 +35,7 @@ body {
 }
 
 .site-nav a:hover,
-.site-nav-home {
+.site-header:has(+ .site-main .home-page) .site-nav-home {
   background: #eaf3eb;
 }
 
@@ -57,7 +57,7 @@ body {
 .site-header-action:hover { background: #07533c; }
 .site-header-action span { font-size: 20px; line-height: 0; }
 .site-header:has(+ .site-main .participant-page) .site-header-action { display: none; }
-.site-header:not(:has(+ .site-main .home-page)) .site-nav { display: none; }
+.site-header:has(+ .site-main .participant-page) .site-nav { display: none; }
 
 @media (max-width: 760px) {
   .site-header > div { flex-wrap: wrap; }

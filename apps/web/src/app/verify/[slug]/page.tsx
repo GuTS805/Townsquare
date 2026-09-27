@@ -78,11 +78,11 @@ export default function Verify({ params }: { params: Promise<{ slug: string }> }
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-teal">Verify it yourself</p>
+    <div className="app-page verify-page mx-auto max-w-3xl space-y-6">
+      <div className="page-hero">
+        <p className="text-sm font-semibold uppercase tracking-widest text-teal">Verify it yourself</p>
         <h1 className="mt-1 text-2xl font-bold">{bundle?.conversation ? `Checking ${slug}` : "Checking…"}</h1>
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-base text-muted">
           Your browser downloads the full log and re-checks it. Anchors are read straight from Base through a public RPC, not from
           Townsquare's server.
         </p>
@@ -93,18 +93,18 @@ export default function Verify({ params }: { params: Promise<{ slug: string }> }
           <p className={`font-semibold ${failed ? "text-disagree" : "text-teal"}`}>
             {failed ? "✗ Something doesn't add up. See the failing checks below." : "✓ Everything checks out."}
           </p>
-          {!bundle?.meta.onchain && <p className="mt-1 text-xs text-muted">This server is not anchoring onchain, so D compares against its own batches only.</p>}
+          {!bundle?.meta.onchain && <p className="mt-1 text-sm text-muted">This server is not anchoring onchain, so D compares against its own batches only.</p>}
         </div>
       )}
 
-      <div className="space-y-2">
-        {CHECKS.map((c) => {
+      <div className="verify-checks space-y-2">
+        {CHECKS.map((c, index) => {
           const r = results.find((x) => x.id === c.id);
           return (
-            <details key={c.id} className="card" open={r?.status === "fail"}>
+            <details key={c.id} className={`card verify-check ${r ? "is-complete" : running && index === results.length ? "is-current" : ""}`} open={r?.status === "fail"}>
               <summary className="flex cursor-pointer list-none items-center gap-3">
                 <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base font-bold ${
                     !r ? "bg-line text-muted" : r.status === "fail" ? "bg-disagree text-white" : r.status === "warn" ? "bg-warm-soft text-warm" : "bg-teal text-white"
                   }`}
                 >
@@ -114,12 +114,12 @@ export default function Verify({ params }: { params: Promise<{ slug: string }> }
                   <p className="font-semibold">
                     {c.id} · {c.name}
                   </p>
-                  <p className="text-xs text-muted">{r ? r.summary : `catches ${c.catches}`}</p>
+                  <p className="text-sm text-muted">{r ? r.summary : `catches ${c.catches}`}</p>
                 </div>
-                {r && <span className="text-xs text-muted">{r.ms} ms</span>}
+                {r && <span className="text-sm text-muted">{r.ms} ms</span>}
               </summary>
               {r && r.failures.length > 0 && (
-                <ul className="mt-3 space-y-1 border-t border-line pt-3 font-mono text-xs text-disagree">
+                <ul className="mt-3 space-y-1 border-t border-line pt-3 font-mono text-sm text-disagree">
                   {r.failures.map((f) => (
                     <li key={f}>{f}</li>
                   ))}
@@ -130,8 +130,8 @@ export default function Verify({ params }: { params: Promise<{ slug: string }> }
         })}
       </div>
 
-      {running && <p className="text-sm text-muted">{status}</p>}
-      {error && <p className="text-sm text-disagree">{error}</p>}
+      {running && <p className="verify-status text-base text-muted" role="status">{status}</p>}
+      {error && <p className="text-base text-disagree">{error}</p>}
 
       <div className="flex flex-wrap gap-2">
         <button className="btn-primary" disabled={running} onClick={() => void run()}>
@@ -145,7 +145,7 @@ export default function Verify({ params }: { params: Promise<{ slug: string }> }
       {chain && chain.batches.length > 0 && (
         <div className="card">
           <h2 className="font-semibold">Anchors on Base</h2>
-          <ul className="mt-2 space-y-1 text-sm">
+          <ul className="mt-2 space-y-1 text-base">
             {chain.batches.map((b) => (
               <li key={b.batch}>
                 Batch {b.batch} · events {b.fromSeq}–{b.toSeq} ·{" "}
@@ -185,19 +185,19 @@ function ReceiptChecker({ slug, bundle, chain }: { slug: string; bundle: Bundle;
   }
 
   return (
-    <div className="card space-y-3">
+    <div className="card receipt-card space-y-3">
       <h2 className="font-semibold">Check a receipt</h2>
-      <p className="text-sm text-muted">Every vote returns a receipt signed by the server. Paste one to see it in the anchored log.</p>
+      <p className="text-base text-muted">Every vote returns a receipt signed by the server. Paste one to see it in the anchored log.</p>
       {mine.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {mine.slice(-8).map((r) => (
-            <button key={r.eventHash} className="rounded-full bg-indigo-soft px-3 py-1 text-xs text-indigo" onClick={() => void check(r)}>
+            <button key={r.eventHash} className="rounded-full bg-indigo-soft px-3 py-1 text-sm text-indigo" onClick={() => void check(r)}>
               #{r.seq} {r.label}
             </button>
           ))}
         </div>
       )}
-      <textarea className="input min-h-24 font-mono text-xs" value={text} onChange={(e) => setText(e.target.value)} placeholder='{"v":1,"conv":"…","seq":42,…}' />
+      <textarea className="input min-h-24 font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder='{"v":1,"conv":"…","seq":42,…}' />
       <button
         className="btn-outline"
         disabled={!text.trim()}
@@ -211,9 +211,9 @@ function ReceiptChecker({ slug, bundle, chain }: { slug: string; bundle: Bundle;
       >
         Check receipt
       </button>
-      {error && <p className="text-sm text-disagree">{error}</p>}
+      {error && <p className="text-base text-disagree">{error}</p>}
       {result && (
-        <p className={`rounded-xl px-3 py-2 text-sm ${result.verdict === "included" ? "bg-teal-soft text-teal" : result.verdict === "pending" ? "bg-warm-soft text-warm" : "bg-disagree/10 text-disagree"}`}>
+        <p className={`rounded-xl px-3 py-2 text-base ${result.verdict === "included" ? "bg-teal-soft text-teal" : result.verdict === "pending" ? "bg-warm-soft text-warm" : "bg-disagree/10 text-disagree"}`}>
           {result.verdict === "included" ? "✓ " : result.verdict === "pending" ? "… " : "✗ "}
           {result.detail}
           {result.verdict === "host-misbehaved" && " This signed receipt is public proof of it."}

@@ -33,7 +33,7 @@ export function CodeSheet({ slug, title, codes }: { slug: string; title: string;
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-4 print:gap-2">
         {codes.map((c) => (
-          <div key={c} className="flex flex-col items-center rounded-xl border border-dashed border-line p-3 text-center break-inside-avoid">
+          <div key={c} className="code-slip flex flex-col items-center rounded-xl border border-dashed border-line p-3 text-center break-inside-avoid">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">{title}</span>
             <QRCodeSVG value={link(c)} size={96} className="my-2" />
             <span className="font-mono text-sm font-semibold tracking-wider">{c}</span>

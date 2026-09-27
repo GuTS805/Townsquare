@@ -55,17 +55,18 @@ export default function Participate({ params }: { params: Promise<{ slug: string
     return () => clearInterval(t);
   }, [stage, refresh]);
 
-  if (error && !conv) return <p className="card text-disagree">{error}</p>;
-  if (!conv || stage === "loading") return <p className="text-muted">Loading…</p>;
+  if (error && !conv) return <div className="app-page participant-page"><p className="card text-disagree">{error}</p></div>;
+  if (!conv || stage === "loading") return <div className="participant-page app-loading" role="status">Loading conversation…</div>;
 
   return (
-    <div className="participant-page mx-auto max-w-md space-y-5">
-      <div>
+    <div className="app-page participant-page mx-auto max-w-md space-y-5">
+      <div className="page-hero">
         <p className="text-sm font-semibold uppercase tracking-widest text-teal">Townsquare</p>
         <h1 className="mt-1 text-2xl font-bold">{conv.question}</h1>
         {conv.context && <p className="mt-2 text-base text-muted">{conv.context}</p>}
       </div>
 
+      <div key={stage} className="flow-stage">
       {(conv.phase === "closed" || conv.phase === "sealed") && stage !== "vote" ? (
         <div className="card">
           <p className="text-base">This conversation has {conv.phase === "sealed" ? "been sealed" : "closed"}.</p>
@@ -88,13 +89,14 @@ export default function Participate({ params }: { params: Promise<{ slug: string
       ) : (
         <Vote slug={slug} conv={conv} onStale={async () => { await clearSession(slug); setStage("registered"); }} />
       )}
+      </div>
     </div>
   );
 }
 
 function PrivacyCard() {
   return (
-    <div className="rounded-2xl bg-teal-soft p-4">
+    <div className="privacy-card rounded-2xl bg-teal-soft p-4">
       <h3 className="text-base font-semibold">What Townsquare knows about you</h3>
       <p className="mt-1 text-base text-muted">Nothing, except a proof that you're eligible and haven't joined before.</p>
     </div>
@@ -237,9 +239,9 @@ function Registered(p: {
   if (p.joining) {
     const at = STAGES.findIndex((s) => s.key === stage);
     return (
-      <div className="card space-y-4">
+      <div className="card proof-card space-y-4">
         <h2 className="font-semibold">Building your proof…</h2>
-        <ul className="space-y-2 text-base">
+        <ul className="proof-steps space-y-2 text-base">
           {STAGES.map((s, i) => (
             <li key={s.key} className={i < at ? "text-teal" : i === at ? "font-semibold" : "text-muted"}>
               {i < at ? "✓" : i === at ? "●" : "○"} {s.label}
@@ -279,8 +281,8 @@ function Registered(p: {
             <p className="text-base font-semibold">
               Voting opens at {conv.minMembers} members (now {conv.counts.members})
             </p>
-            <div className="mt-3 h-2 rounded-full bg-line">
-              <div className="h-2 rounded-full bg-teal transition-all" style={{ width: `${Math.min(100, (conv.counts.members / conv.minMembers) * 100)}%` }} />
+            <div className="progress-track mt-3 h-2 rounded-full bg-line">
+              <div className="progress-fill h-2 rounded-full bg-teal transition-all" style={{ width: `${Math.min(100, (conv.counts.members / conv.minMembers) * 100)}%` }} />
             </div>
             <p className="mt-2 text-sm text-muted">Waiting keeps you anonymous: your vote hides among everyone who joined.</p>
           </>
@@ -345,7 +347,7 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
   const clean = normalizeStatement(text);
   const textOk = clean.length >= STATEMENT_MIN && clean.length <= STATEMENT_MAX;
 
-  if (!next) return <p className="text-muted">Loading…</p>;
+  if (!next) return <div className="app-loading" role="status">Loading statements…</div>;
   const closed = conv.phase !== "open";
 
   return (
@@ -359,15 +361,15 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
             Live results
           </Link>
         </div>
-        <div className="mt-1.5 h-1.5 rounded-full bg-line">
-          <div className="h-1.5 rounded-full bg-teal" style={{ width: `${next.total ? (next.seen / next.total) * 100 : 0}%` }} />
+        <div className="progress-track mt-1.5 h-1.5 rounded-full bg-line">
+          <div className="progress-fill h-1.5 rounded-full bg-teal" style={{ width: `${next.total ? (next.seen / next.total) * 100 : 0}%` }} />
         </div>
       </div>
 
       {closed ? (
         <div className="card text-base">Voting has closed.</div>
       ) : next.statement ? (
-        <div className="card">
+        <div key={next.statement.sid} className="card vote-card" aria-busy={busy}>
           <p className="min-h-28 text-xl font-medium leading-snug sm:text-2xl">{next.statement.text}</p>
           <p className="mt-3 text-sm text-muted">Statement #{next.statement.sid}</p>
           <div className="mt-4 grid grid-cols-3 gap-2">
@@ -427,7 +429,7 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
         ))}
 
       {error && <p className="text-center text-base text-disagree">{error}</p>}
-      {receipt !== null && <p className="rounded-xl bg-indigo-soft py-2 text-center text-sm text-indigo">Receipt #{receipt} saved on this device</p>}
+      {receipt !== null && <p key={receipt} className="receipt-flash rounded-xl bg-indigo-soft py-2 text-center text-sm text-indigo">Receipt #{receipt} saved on this device</p>}
     </div>
   );
 }
@@ -479,9 +481,9 @@ function AadhaarGate({ slug, conv, onDone }: { slug: string; conv: PublicConvers
   if (stage) {
     const at = AADHAAR_STAGES.findIndex((s) => s.key === stage);
     return (
-      <div className="card space-y-4">
+      <div className="card proof-card space-y-4">
         <h2 className="font-semibold">Building your proof…</h2>
-        <ul className="space-y-2 text-base">
+        <ul className="proof-steps space-y-2 text-base">
           {AADHAAR_STAGES.map((s, i) => (
             <li key={s.key} className={i < at ? "text-teal" : i === at ? "font-semibold" : "text-muted"}>
               {i < at ? "✓" : i === at ? "●" : "○"} {s.label}
