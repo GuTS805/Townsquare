@@ -31,7 +31,7 @@ body { overflow-x: hidden; background: #f6f8f3; }
 .page-hero .btn-outline { border-color: #f4ddb0; background: #ffffff12; color: #fff0d3; }
 .page-hero .btn-outline:hover { background: #ffffff28; }
 
-.app-page .card { border-color: #d8e3db; background: #ffffffed; box-shadow: 0 12px 34px #1d503313, inset 0 1px #fff; backdrop-filter: blur(9px); transition: transform .35s var(--motion-ease), box-shadow .35s var(--motion-ease), border-color .35s; }
+.app-page .card { border-color: #d8e3db; background: #ffffffed; box-shadow: 0 12px 34px #1d503313, inset 0 1px #fff; transition: transform .35s var(--motion-ease), box-shadow .35s var(--motion-ease), border-color .35s; }
 .app-page .card[class~="bg-warm-soft"] { background: #fff1db; }
 .app-page .card[class~="bg-teal-soft"] { background: #e7f7eb; }
 .app-page .card[class~="bg-disagree/5"] { background: #fff4f1; }
