@@ -30,9 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh">
         <header className="site-header border-b border-line bg-white/80 backdrop-blur">
           <div className="mx-auto flex min-h-[59px] max-w-[1380px] items-center justify-between gap-5 px-5 py-2 sm:px-6">
-            <Link href="/" className="flex shrink-0 items-center gap-2 font-display text-lg font-bold text-deep">
-              <Logo />
-              Townsquare
+            <Link href="/" className="site-logo flex shrink-0 items-center" aria-label="Townsquare home">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/townsquare-logo.webp" alt="Townsquare" width={174} height={44} className="h-9 w-auto sm:h-10" />
             </Link>
             <nav className="site-nav flex items-center gap-1 text-[14px] font-medium" aria-label="Main navigation">
               <Link href="/" className="site-nav-home">Home</Link>
@@ -49,18 +49,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </footer>
       </body>
     </html>
-  );
-}
-
-function Logo() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden>
-      <circle cx="16" cy="16" r="15" fill="#0d3b37" />
-      <circle cx="16" cy="16" r="9" fill="none" stroke="#5fb8a6" strokeWidth="1.2" />
-      <circle cx="16" cy="16" r="3.2" fill="#fff" />
-      <circle cx="9.5" cy="10" r="2" fill="#5fcfb4" />
-      <circle cx="23.5" cy="13" r="2" fill="#f2a45c" />
-      <circle cx="15" cy="24.5" r="2" fill="#9aa6ff" />
-    </svg>
   );
 }

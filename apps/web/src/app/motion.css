@@ -3,7 +3,6 @@
 body { overflow-x: hidden; background: #f6f8f3; }
 .site-header { position: sticky; top: 0; z-index: 30; box-shadow: 0 5px 28px #0a30230d; }
 .site-header::after { position: absolute; inset: auto 0 0; height: 2px; background: linear-gradient(90deg, transparent, #43bd83, #d2a95c, transparent); background-size: 220% 100%; content: ""; animation: header-light 9s linear infinite; }
-.site-header svg { transform-origin: center; animation: logo-orbit 20s linear infinite; }
 .site-header-action { background: linear-gradient(110deg, #042c25, #087052, #042c25); background-size: 220% 100%; animation: action-glow 6s ease-in-out infinite, header-light 9s linear infinite; transition: transform .3s var(--motion-ease), box-shadow .3s var(--motion-ease); }
 .site-header-action:hover { transform: translateY(-2px); box-shadow: 0 10px 25px #00694742; }
 .site-nav a { transition: color .25s, background .25s, transform .25s var(--motion-ease); }
