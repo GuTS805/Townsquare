@@ -3,7 +3,17 @@
 import { STATEMENT_MAX, STATEMENT_MIN, joinMessage, joinScope, normalizeStatement } from "@townsquare/core";
 import Link from "next/link";
 import { use, useCallback, useEffect, useRef, useState } from "react";
-import { proveAadhaar, readQrImage, type AadhaarStage } from "@/lib/aadhaar";
+import {
+  downloadProvingKey,
+  keepAwake,
+  lowMemoryDevice,
+  onKeyProgress,
+  proveAadhaar,
+  readQrImage,
+  shouldPrefetchKey,
+  type AadhaarStage,
+  type KeyProgress,
+} from "@/lib/aadhaar";
 import { ApiError, api, friendly, txUrl, type Meta, type PublicConversation } from "@/lib/api";
 import { proveJoin, type ProveStage } from "@/lib/prove";
 import {
@@ -437,7 +447,7 @@ function Vote({ slug, conv, onStale }: { slug: string; conv: PublicConversation;
 const AADHAAR_STAGES: { key: AadhaarStage; label: string }[] = [
   { key: "reading", label: "Reading the QR" },
   { key: "signature", label: "Checking the UIDAI signature" },
-  { key: "fetching-zkey", label: "Downloading the proving key (large, first time only)" },
+  { key: "fetching-zkey", label: "Downloading the proving key (first time only)" },
   { key: "proving", label: "Generating your zero-knowledge proof" },
   { key: "done", label: "Joining the group" },
 ];
@@ -447,13 +457,33 @@ function AadhaarGate({ slug, conv, onDone }: { slug: string; conv: PublicConvers
   const [stage, setStage] = useState<AadhaarStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Meta["aadhaarMode"] | null>(null);
+  const [key, setKey] = useState<KeyProgress | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [lowMemory, setLowMemory] = useState(false);
 
   useEffect(() => {
     void api<Meta>("/meta").then((m) => setMode(m.aadhaarMode)).catch(() => setMode("test"));
+    setLowMemory(lowMemoryDevice());
+    return onKeyProgress(setKey);
   }, []);
+
+  // Starts the big download while the person is still finding their QR.
+  useEffect(() => {
+    if (mode === "test" && shouldPrefetchKey()) downloadProvingKey().catch(() => undefined);
+  }, [mode]);
+
+  useEffect(() => {
+    if (startedAt === null) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [startedAt]);
 
   async function run(file: File) {
     setError(null);
+    setStartedAt(Date.now());
+    setNow(Date.now());
+    const release = await keepAwake();
     try {
       setStage("reading");
       const qrData = await readQrImage(file);
@@ -471,26 +501,47 @@ function AadhaarGate({ slug, conv, onDone }: { slug: string; conv: PublicConvers
     } catch (e) {
       setError(friendly(e));
       setStage(null);
+      setStartedAt(null);
+    } finally {
+      release();
     }
   }
 
   if (mode === "production") {
-    return <div className="card text-base text-muted">This build runs Anon Aadhaar in test mode only. Ask the host for an invite code.</div>;
+    return <div className="card text-base text-muted">This server only accepts real Aadhaar proofs, and this app supports test QRs only. Ask the host for an invite code.</div>;
   }
+
+  const keyPct = key ? Math.floor((key.loaded / key.total) * 100) : 0;
+  const keyLine = key && !key.done ? `${keyPct}% of ${Math.round(key.total / 1e6)} MB` : null;
 
   if (stage) {
     const at = AADHAAR_STAGES.findIndex((s) => s.key === stage);
+    const secs = startedAt === null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
     return (
       <div className="card proof-card space-y-4">
-        <h2 className="font-semibold">Building your proof…</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-semibold">Building your proof…</h2>
+          <span className="font-mono text-sm text-muted">
+            {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}
+          </span>
+        </div>
         <ul className="proof-steps space-y-2 text-base">
           {AADHAAR_STAGES.map((s, i) => (
             <li key={s.key} className={i < at ? "text-teal" : i === at ? "font-semibold" : "text-muted"}>
               {i < at ? "✓" : i === at ? "●" : "○"} {s.label}
+              {s.key === "fetching-zkey" && i === at && keyLine && <span className="font-normal text-muted"> · {keyLine}</span>}
+              {s.key === "proving" && i === at && <span className="font-normal text-muted"> · usually 1–2 min on a laptop</span>}
             </li>
           ))}
         </ul>
-        <p className="rounded-xl bg-warm-soft px-3 py-2 text-center text-sm text-warm">Please don't close this tab. This can take a few minutes on a phone.</p>
+        {stage === "fetching-zkey" && key && !key.done && (
+          <div className="progress-track h-2 rounded-full bg-line">
+            <div className="progress-fill h-2 rounded-full bg-teal" style={{ width: `${keyPct}%` }} />
+          </div>
+        )}
+        <p className="rounded-xl bg-warm-soft px-3 py-2 text-center text-sm text-warm">
+          Keep this tab open and in front. The computer may feel slow while the proof runs; that's normal.
+        </p>
       </div>
     );
   }
@@ -515,6 +566,15 @@ function AadhaarGate({ slug, conv, onDone }: { slug: string; conv: PublicConvers
         Upload a screenshot of the Secure QR. It never leaves this phone; only a zero-knowledge proof does.
         {conv.gate.reveal.includes("ageAbove18") && " The proof shows you're over 18 and nothing else."}
       </p>
+      <p className="text-center text-sm text-muted">
+        The proof takes about a minute once the proving key is downloaded (296 MB, first time only). Close other tabs and plug in your charger first.
+        {key && (key.done ? " Proving key ready." : ` Downloading now: ${keyLine}.`)}
+      </p>
+      {lowMemory && (
+        <p className="rounded-xl bg-warm-soft px-3 py-2 text-center text-sm text-warm">
+          This device looks low on memory and the proof may fail. A laptop works best, or ask the host for an invite code.
+        </p>
+      )}
       <p className="rounded-xl bg-indigo-soft px-3 py-2 text-center text-sm text-indigo">
         Test mode: use a test QR from the Anon Aadhaar test QR generator, not a real Aadhaar.
       </p>

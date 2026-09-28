@@ -25,6 +25,76 @@ const REVEAL_FIELDS: Record<string, "revealAgeAbove18" | "revealState"> = {
   state: "revealState",
 };
 
+export type KeyProgress = { loaded: number; total: number; done: boolean };
+
+let keyDownload: Promise<void> | null = null;
+let keyProgress: KeyProgress | null = null;
+const keyListeners = new Set<(p: KeyProgress) => void>();
+
+// Downloads the ~300 MB proving key into the browser cache once per page load. Safe to call
+// repeatedly; later calls share the running download. A failed download can be started again.
+export function downloadProvingKey(): Promise<void> {
+  keyDownload ??= new Promise<void>((resolve, reject) => {
+    const worker = new Worker(new URL("./aadhaar-key.worker.ts", import.meta.url), { type: "module" });
+    const emit = (p: KeyProgress) => {
+      keyProgress = p;
+      keyListeners.forEach((l) => l(p));
+    };
+    worker.onmessage = (ev) => {
+      const m = ev.data;
+      if (m.type === "progress") emit({ loaded: m.loaded, total: m.total, done: false });
+      else {
+        worker.terminate();
+        if (m.type === "done") {
+          emit({ loaded: keyProgress?.total ?? 1, total: keyProgress?.total ?? 1, done: true });
+          resolve();
+        } else {
+          keyDownload = null;
+          reject(new Error(m.error));
+        }
+      }
+    };
+    worker.onerror = (e) => {
+      worker.terminate();
+      keyDownload = null;
+      reject(new Error(e.message || "download crashed"));
+    };
+    worker.postMessage("start");
+  });
+  return keyDownload;
+}
+
+export function onKeyProgress(listener: (p: KeyProgress) => void): () => void {
+  keyListeners.add(listener);
+  if (keyProgress) listener(keyProgress);
+  return () => keyListeners.delete(listener);
+}
+
+type NavigatorHints = Navigator & { deviceMemory?: number; connection?: { saveData?: boolean; type?: string } };
+
+// Phones and small laptops often run out of memory while proving. deviceMemory is Chromium-only
+// and rounded, so an unknown value counts as fine.
+export function lowMemoryDevice(): boolean {
+  const mem = (navigator as NavigatorHints).deviceMemory;
+  return mem !== undefined && mem <= 4;
+}
+
+// Starting a 300 MB download without asking is fine on Wi-Fi, not on mobile data.
+export function shouldPrefetchKey(): boolean {
+  const c = (navigator as NavigatorHints).connection;
+  return !c?.saveData && c?.type !== "cellular" && !lowMemoryDevice();
+}
+
+// Keeps a phone screen on while the proof runs; the browser drops the lock when the tab hides.
+export async function keepAwake(): Promise<() => void> {
+  try {
+    const lock = await navigator.wakeLock?.request("screen");
+    return () => void lock?.release().catch(() => undefined);
+  } catch {
+    return () => undefined;
+  }
+}
+
 export function proveAadhaar(
   input: { qrData: string; certificate: string; nullifierSeed: string; signal: string; reveal: string[] },
   onStage: (s: AadhaarStage) => void,
@@ -33,7 +103,16 @@ export function proveAadhaar(
     const worker = new Worker(new URL("./aadhaar.worker.ts", import.meta.url), { type: "module" });
     worker.onmessage = (ev) => {
       const m = ev.data;
-      if (m.stage === "error") {
+      if (m.wait) {
+        onStage("fetching-zkey");
+        downloadProvingKey().then(
+          () => worker.postMessage("key-ready"),
+          (e: Error) => {
+            worker.terminate();
+            reject(e);
+          },
+        );
+      } else if (m.stage === "error") {
         worker.terminate();
         reject(new Error(m.error));
       } else if (m.stage === "done") {
